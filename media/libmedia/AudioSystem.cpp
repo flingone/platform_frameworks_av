@@ -426,9 +426,6 @@ void AudioSystem::AudioFlingerClient::binderDied(const wp<IBinder>& who) {
     // clear output handles and stream to output map caches
     AudioSystem::gOutputs.clear();
 
-    if (gAudioErrorCallback) {
-        gAudioErrorCallback(DEAD_OBJECT);
-    }
     ALOGW("AudioFlinger server died!");
 }
 
@@ -808,6 +805,9 @@ void AudioSystem::AudioPolicyServiceClient::binderDied(const wp<IBinder>& who) {
     Mutex::Autolock _l(AudioSystem::gLock);
     AudioSystem::gAudioPolicyService.clear();
 
+    if (gAudioErrorCallback) {
+        gAudioErrorCallback(DEAD_OBJECT);
+    }
     ALOGW("AudioPolicyService server died!");
 }
 
