@@ -1983,8 +1983,8 @@ The parameters that affect these derived values are:
 void AudioFlinger::PlaybackThread::cacheParameters_l()
 {
     mixBufferSize = mNormalFrameCount * mFrameSize;
-    activeSleepTime = activeSleepTimeUs();
-    idleSleepTime = idleSleepTimeUs();
+    activeSleepTime = activeSleepTimeUs()/4;
+    idleSleepTime = idleSleepTimeUs()/4;
 }
 
 void AudioFlinger::PlaybackThread::invalidateTracks(audio_stream_type_t streamType)
@@ -3074,14 +3074,14 @@ AudioFlinger::PlaybackThread::mixer_state AudioFlinger::MixerThread::prepareTrac
                 track->mFillingUpStatus = Track::FS_ACTIVE;
                 if (track->mState == TrackBase::RESUMING) {
                     track->mState = TrackBase::ACTIVE;
-                    param = AudioMixer::RAMP_VOLUME;
+                    //param = AudioMixer::RAMP_VOLUME;
                 }
                 mAudioMixer->setParameter(name, AudioMixer::RESAMPLE, AudioMixer::RESET, NULL);
             // FIXME should not make a decision based on mServer
             } else if (cblk->mServer != 0) {
                 // If the track is stopped before the first frame was mixed,
                 // do not apply ramp
-                param = AudioMixer::RAMP_VOLUME;
+                //param = AudioMixer::RAMP_VOLUME;
             }
 
             // compute volume for this track
@@ -4430,7 +4430,9 @@ bool AudioFlinger::RecordThread::threadLoop()
 
     // used to verify we've read at least once before evaluating how many bytes were read
     bool readOnce = false;
-
+	
+	short tmpBuf[512];
+	
     // start recording
     while (!exitPending()) {
 
@@ -4621,7 +4623,8 @@ bool AudioFlinger::RecordThread::threadLoop()
                 // Release the processor for a while before asking for a new buffer.
                 // This will give the application more chance to read from the buffer and
                 // clear the overflow.
-                usleep(kRecordThreadSleepUs);
+                mInput->stream->read(mInput->stream, tmpBuf, 1024); 
+                //usleep(kRecordThreadSleepUs);
             }
         }
         // enable changes in effect chain

@@ -32,22 +32,8 @@ const int64_t kNearEOSMarkUs = 2000000ll; // 2 secs
 
 AnotherPacketSource::AnotherPacketSource(const sp<MetaData> &meta)
     : mIsAudio(false),
-      mFormat(NULL),
-      mLastQueuedTimeUs(0),
+      mFormat(meta),
       mEOSResult(OK) {
-    setFormat(meta);
-}
-
-void AnotherPacketSource::setFormat(const sp<MetaData> &meta) {
-    CHECK(mFormat == NULL);
-
-    mIsAudio = false;
-
-    if (meta == NULL) {
-        return;
-    }
-
-    mFormat = meta;
     const char *mime;
     CHECK(meta->findCString(kKeyMIMEType, &mime));
 
@@ -56,6 +42,11 @@ void AnotherPacketSource::setFormat(const sp<MetaData> &meta) {
     } else {
         CHECK(!strncasecmp("video/", mime, 6));
     }
+}
+
+void AnotherPacketSource::setFormat(const sp<MetaData> &meta) {
+    CHECK(mFormat == NULL);
+    mFormat = meta;
 }
 
 AnotherPacketSource::~AnotherPacketSource() {
@@ -136,6 +127,12 @@ status_t AnotherPacketSource::read(
     return mEOSResult;
 }
 
+int64_t AnotherPacketSource::getCurrentPackTime()
+{
+    int64_t timeUs = 0;
+   
+    return timeUs;
+}
 bool AnotherPacketSource::wasFormatChange(
         int32_t discontinuityType) const {
     if (mIsAudio) {
@@ -152,23 +149,18 @@ void AnotherPacketSource::queueAccessUnit(const sp<ABuffer> &buffer) {
         return;
     }
 
-    CHECK(buffer->meta()->findInt64("timeUs", &mLastQueuedTimeUs));
-    ALOGV("queueAccessUnit timeUs=%lld us (%.2f secs)", mLastQueuedTimeUs, mLastQueuedTimeUs / 1E6);
+    int64_t timeUs;
+    CHECK(buffer->meta()->findInt64("timeUs", &timeUs));
+    ALOGV("queueAccessUnit timeUs=%lld us (%.2f secs)", timeUs, timeUs / 1E6);
 
     Mutex::Autolock autoLock(mLock);
     mBuffers.push_back(buffer);
     mCondition.signal();
 }
 
-void AnotherPacketSource::clear() {
-    Mutex::Autolock autoLock(mLock);
-
-    mBuffers.clear();
-    mEOSResult = OK;
-
-    mFormat = NULL;
+void AnotherPacketSource::queueAccessUnit(MediaBuffer *buffer) {
+    
 }
-
 void AnotherPacketSource::queueDiscontinuity(
         ATSParser::DiscontinuityType type,
         const sp<AMessage> &extra) {
@@ -190,7 +182,6 @@ void AnotherPacketSource::queueDiscontinuity(
     }
 
     mEOSResult = OK;
-    mLastQueuedTimeUs = 0;
 
     sp<ABuffer> buffer = new ABuffer(0);
     buffer->meta()->setInt32("discontinuity", static_cast<int32_t>(type));
@@ -198,6 +189,14 @@ void AnotherPacketSource::queueDiscontinuity(
 
     mBuffers.push_back(buffer);
     mCondition.signal();
+}
+void AnotherPacketSource::clear() {
+   
+}
+
+void AnotherPacketSource::setLastTime(uint64_t timeus)
+{
+   
 }
 
 void AnotherPacketSource::signalEOS(status_t result) {
@@ -216,6 +215,13 @@ bool AnotherPacketSource::hasBufferAvailable(status_t *finalResult) {
 
     *finalResult = mEOSResult;
     return false;
+}
+uint32_t AnotherPacketSource::numBufferAvailable(int32_t *mUseMem) {
+    Mutex::Autolock autoLock(mLock);
+	if(mUseMem != NULL){
+        *mUseMem = quen_memUsed;
+    }
+    return quen_num;
 }
 
 int64_t AnotherPacketSource::getBufferedDurationUs(status_t *finalResult) {
@@ -277,5 +283,4 @@ bool AnotherPacketSource::isFinished(int64_t duration) const {
     }
     return (mEOSResult != OK);
 }
-
 }  // namespace android

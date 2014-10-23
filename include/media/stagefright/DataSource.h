@@ -57,6 +57,9 @@ public:
     bool getUInt24(off64_t offset, uint32_t *x); // 3 byte int, returned as a 32-bit int
     bool getUInt32(off64_t offset, uint32_t *x);
     bool getUInt64(off64_t offset, uint64_t *x);
+    virtual void updatecache(off64_t offset){
+        return;
+    }
 
     // May return ERROR_UNSUPPORTED.
     virtual status_t getSize(off64_t *size);
@@ -93,6 +96,11 @@ public:
     }
 
     virtual String8 getMIMEType() const;
+	
+    /* <DTS2012050301388 wanghao 20120503 begin */
+    virtual void setDrmPreviewMode() {};
+    /* DTS2012050301388 wanghao 20120503 end> */
+	
 
 protected:
     virtual ~DataSource() {}

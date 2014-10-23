@@ -48,6 +48,9 @@
 #include "ESDS.h"
 #include <media/stagefright/Utils.h>
 
+#if NUPLAYER_ENABLE_URL_CHECK
+#include "Urlcheck.h"
+#endif
 namespace android {
 
 struct NuPlayer::Action : public RefBase {
@@ -216,7 +219,17 @@ void NuPlayer::setDataSourceAsync(
     sp<AMessage> notify = new AMessage(kWhatSourceNotify, id());
 
     sp<Source> source;
-    if (IsHTTPLiveURL(url)) {
+    int32_t isRealM3U8 = 0;
+#if NUPLAYER_ENABLE_URL_CHECK
+    UrlCheckHelper* urlCheck = UrlCheckHelper::getInstance();
+    if (!IsHTTPLiveURL(url)) {
+        if (urlCheck && urlCheck->isUrlRealM3U8(url)) {
+            ALOGI("from libstagefright check, current url is NU_PLAYER");
+            isRealM3U8 = 1;
+        }
+    }
+#endif
+    if (isRealM3U8 || IsHTTPLiveURL(url)) {
         source = new HTTPLiveSource(notify, url, headers, mUIDValid, mUID);
     } else if (!strncasecmp(url, "rtsp://", 7)) {
         source = new RTSPSource(notify, url, headers, mUIDValid, mUID);

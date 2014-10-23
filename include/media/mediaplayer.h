@@ -50,6 +50,13 @@ enum media_event_type {
     MEDIA_ERROR             = 100,
     MEDIA_INFO              = 200,
     MEDIA_SUBTITLE_DATA     = 201,
+    // add by hh for bluray
+    MEDIA_BLURAY_ISO_MOUNT_START  = 300,
+    MEDIA_BLURAY_ISO_MOUNT_END = 301,
+    MEDIA_BLURAY_ISO_UNMOUNT_START = 302,
+    MEDIA_BLURAY_ISO_UNMOUNT_END = 303,
+    MEDIA_BLURAY_ISO_PLAY_START = 304,
+    MEDIA_BLURAY_PLAY_NEXT  = 305,
 };
 
 // Generic error codes for the media player framework.  Errors are fatal, the
@@ -118,6 +125,15 @@ enum media_info_type {
     // Bandwidth in recent past
     MEDIA_INFO_NETWORK_BANDWIDTH = 703,
 
+	//LoadingPercent add by xhr
+	MEDIA_INFO_BUFFERING_PERCENT = 705,
+
+	//LoadingRate add by xhr
+	MEDIA_INFO_LAODING_RATE = 706,
+
+	//decoder cfg suport audio play whether,add by xhr
+	MEDIA_INFO_DECODER_CFG_AUDIO_SUPPORT = 708,
+
     // 8xx
     // Bad interleaving means that a media has been improperly interleaved or not
     // interleaved at all, e.g has all the video samples first then all the audio
@@ -130,6 +146,19 @@ enum media_info_type {
 
     //9xx
     MEDIA_INFO_TIMED_TEXT_ERROR = 900,
+
+	//xiaomi, for Control play after loading end ,add by xhr
+    MEDIA_INFO_PLAYING_START = 901,
+
+	//xiaomi, for Conrol pause after loading start,add by xhr
+    MEDIA_INFO_PLAYING_END = 902,
+	
+	    //95xx
+    MEDIA_INFO_BLURAY_COMPLETE  = 950,
+    MEDIA_INFO_BLURAY_REPORT_VIDEO_PID  = 951,/* $ add by xhr $ 20130707 $ for notify ts stream track PID $ Bluray Program $ */
+    MEDIA_INFO_BLURAY_REPORT_AUDIO_PID  = 952,/* $ add by xhr $ 20130707 $ for notify ts stream track PID $ Bluray Program $ */
+    MEDIA_INFO_BLURAY_REPORT_SUBTITLE_PID = 953,/* $ add by xhr $ 20130707 $ for notify ts stream track PID $ Bluray Program $ */
+
 };
 
 
@@ -197,7 +226,7 @@ public:
     ~MediaPlayer();
             void            died();
             void            disconnect();
-
+						status_t        isBluray();
             status_t        setDataSource(
                     const char *url,
                     const KeyedVector<String8, String8> *headers);
@@ -241,7 +270,6 @@ public:
             status_t        getParameter(int key, Parcel* reply);
             status_t        setRetransmitEndpoint(const char* addrString, uint16_t port);
             status_t        setNextMediaPlayer(const sp<MediaPlayer>& player);
-
             status_t updateProxyConfig(
                     const char *host, int32_t port, const char *exclusionList);
 

@@ -42,6 +42,7 @@ class IGraphicBufferProducer;
 template<typename T> class SortedVector;
 
 enum player_type {
+    NO_PLAYER = 0,
     PV_PLAYER = 1,
     SONIVOX_PLAYER = 2,
     STAGEFRIGHT_PLAYER = 3,
@@ -50,6 +51,9 @@ enum player_type {
     // The shared library with the test player is passed passed as an
     // argument to the 'test:' url in the setDataSource call.
     TEST_PLAYER = 5,
+    APE_PLAYER = 6,
+    FF_PLAYER = 7,
+    RKBOXFF_PLAYER = 8
 };
 
 

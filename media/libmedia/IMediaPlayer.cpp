@@ -26,6 +26,7 @@
 
 #include <gui/IGraphicBufferProducer.h>
 #include <utils/String8.h>
+#include <utils/Log.h>
 
 namespace android {
 
@@ -57,6 +58,7 @@ enum {
     SET_RETRANSMIT_ENDPOINT,
     GET_RETRANSMIT_ENDPOINT,
     SET_NEXT_PLAYER,
+    IS_BLURAY,
 };
 
 class BpMediaPlayer: public BpInterface<IMediaPlayer>
@@ -338,6 +340,16 @@ public:
 
         return err;
     }
+
+    /*$_rbox_$_modify_begin_hh for bluray*/
+    status_t isBluray()
+    {
+        Parcel data, reply;
+        data.writeInterfaceToken(IMediaPlayer::getInterfaceDescriptor());
+        remote()->transact(IS_BLURAY, data, &reply);
+        return reply.readInt32();
+    }
+    /*$_rbox_$_modify_end*/
 };
 
 IMPLEMENT_META_INTERFACE(MediaPlayer, "android.media.IMediaPlayer");
@@ -537,6 +549,15 @@ status_t BnMediaPlayer::onTransact(
 
             return NO_ERROR;
         } break;
+        /*$_rbox_$_modify_begin_hh for bluray*/
+        case IS_BLURAY:
+        {
+            CHECK_INTERFACE(IMediaPlayer, data, reply);
+            reply->writeInt32(isBluray());
+            return NO_ERROR;
+        }
+        break;
+        /*$_rbox_$_modify_end*/
         default:
             return BBinder::onTransact(code, data, reply, flags);
     }

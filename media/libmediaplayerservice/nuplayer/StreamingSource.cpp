@@ -69,7 +69,7 @@ status_t NuPlayer::StreamingSource::feedMoreTSData() {
         return mFinalResult;
     }
 
-    for (int32_t i = 0; i < 50; ++i) {
+    for (int32_t i = 0; i < 100; ++i) {
         char buffer[188];
         sp<AMessage> extra;
         ssize_t n = mStreamListener->read(buffer, sizeof(buffer), &extra);
@@ -93,9 +93,11 @@ status_t NuPlayer::StreamingSource::feedMoreTSData() {
 
                 type = mask;
             }
-
-            mTSParser->signalDiscontinuity(
-                    (ATSParser::DiscontinuityType)type, extra);
+            
+            if (0x1234 != mSource->flags() >> 16){  //0x1234 indicates wifi display streaming 
+                mTSParser->signalDiscontinuity(
+                       (ATSParser::DiscontinuityType)type, extra);
+            }
         } else if (n < 0) {
             CHECK_EQ(n, -EWOULDBLOCK);
             break;

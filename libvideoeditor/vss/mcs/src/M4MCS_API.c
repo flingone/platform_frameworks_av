@@ -1849,14 +1849,16 @@ M4OSA_ERR H264MCS_ProcessNALU( NSWAVC_MCS_t *ainstance, M4OSA_UInt8 *inbuff,
         if( nal_unit_type == 8 )
         {
             M4OSA_TRACE1_0("H264MCS_ProcessNALU() Error: PPS");
-            return err;
+			/* RkSDK can support it. */			
+            //return err;
         }
 
         if( nal_unit_type == 7 )
         {
             /*SPS Packet */
             M4OSA_TRACE1_0("H264MCS_ProcessNALU() Error: SPS");
-            return 0;
+			/* RkSDK can support it. */	
+            //return 0;
         }
 
         if( (nal_unit_type == 5) )
@@ -9049,6 +9051,13 @@ static M4OSA_ERR M4MCS_intVideoNullEncoding( M4MCS_InternalContext *pC )
             (M4_StreamHandler *)pC->pReaderVideoStream,
             &pC->ReaderVideoAU1);
 
+        if (pC->ReaderVideoAU1.m_CTS <pC->ReaderVideoAU2.m_CTS) {
+            M4OSA_Double tmp = pC->ReaderVideoAU1.m_CTS;
+            pC->ReaderVideoAU1.m_CTS = pC->ReaderVideoAU2.m_CTS;
+            pC->ReaderVideoAU2.m_CTS = tmp;
+        }
+
+
         if( pC->ReaderVideoAU1.m_maxsize
             > pC->pReaderVideoStream->m_basicProperties.m_maxAUSize )
         {
@@ -9082,6 +9091,12 @@ static M4OSA_ERR M4MCS_intVideoNullEncoding( M4MCS_InternalContext *pC )
         err = pC->m_pReaderDataIt->m_pFctGetNextAu(pC->pReaderContext,
             (M4_StreamHandler *)pC->pReaderVideoStream,
             &pC->ReaderVideoAU2);
+
+        if (pC->ReaderVideoAU2.m_CTS <pC->ReaderVideoAU1.m_CTS) {
+            M4OSA_Double tmp = pC->ReaderVideoAU1.m_CTS;
+            pC->ReaderVideoAU1.m_CTS = pC->ReaderVideoAU2.m_CTS;
+            pC->ReaderVideoAU2.m_CTS = tmp;
+        }
 
         if( pC->ReaderVideoAU2.m_maxsize
             > pC->pReaderVideoStream->m_basicProperties.m_maxAUSize )
@@ -10556,6 +10571,8 @@ M4OSA_ERR M4MCS_intCheckAndGetCodecProperties(
     M4AD_Buffer outputBuffer;
     uint32_t optionValue =0;
 
+    memset(&outputBuffer, 0, sizeof(M4AD_Buffer));
+    outputBuffer.m_dataAddress = M4OSA_NULL;
     M4OSA_TRACE3_0("M4MCS_intCheckAndGetCodecProperties :start");
 
     // Decode first audio frame from clip to get properties from codec
@@ -10653,7 +10670,10 @@ M4OSA_ERR M4MCS_intCheckAndGetCodecProperties(
             m_pFctStepAudioDec returns err = 0x%x", err);
     }
 
-    free(outputBuffer.m_dataAddress);
+    if (outputBuffer.m_dataAddress) {
+    	free(outputBuffer.m_dataAddress);
+        outputBuffer.m_dataAddress = M4OSA_NULL;
+    }
 
     // Reset the stream reader
     err = pC->m_pReader->m_pFctReset(pC->pReaderContext,

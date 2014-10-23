@@ -96,6 +96,10 @@ public:
     virtual status_t        getMetadata(bool update_only,
                                         bool apply_filter,
                                         Parcel *metadata) = 0;
+
+    /*$_rbox_$_modify_begin_hh for bluray*/
+    virtual status_t isBluray() = 0;
+    /*$_rbox_$_modify_end*/
 };
 
 // ----------------------------------------------------------------------------

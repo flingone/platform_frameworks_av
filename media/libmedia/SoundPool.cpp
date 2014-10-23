@@ -24,6 +24,7 @@
 #include <media/mediaplayer.h>
 #include <media/SoundPool.h>
 #include "SoundPoolThread.h"
+#include <cutils/properties.h>
 
 namespace android
 {
@@ -248,6 +249,13 @@ int SoundPool::play(int sampleID, float leftVolume, float rightVolume,
     if (mQuit) {
         return 0;
     }
+    char value[PROPERTY_VALUE_MAX] = "";
+    property_get("media.cfg.audio.soundeffect", value, "-1");
+    if(memcmp(value, "false", 5) == 0){
+        //ALOGD("do not play soundeffect...");
+        return 0;
+    }
+
     // is sample ready?
     sample = findSample(sampleID);
     if ((sample == 0) || (sample->state() != Sample::READY)) {

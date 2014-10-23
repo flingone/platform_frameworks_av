@@ -15,19 +15,23 @@
  */
 
 //#define LOG_NDEBUG 0
+#define RETRY_TIMES 3
 #define LOG_TAG "MediaScanner"
 #include <cutils/properties.h>
 #include <utils/Log.h>
 
 #include <media/mediascanner.h>
 
+#include <fcntl.h> /* Definition of AT_* constants */
 #include <sys/stat.h>
 #include <dirent.h>
+#include <sys/ioctl.h>
+#include <linux/msdos_fs.h>
 
 namespace android {
 
 MediaScanner::MediaScanner()
-    : mLocale(NULL), mSkipList(NULL), mSkipIndex(NULL) {
+    : mLocale(NULL), mSkipList(NULL), mSkipIndex(NULL),mProcessretries(RETRY_TIMES){
     loadSkipList();
 }
 
@@ -179,6 +183,13 @@ MediaScanResult MediaScanner::doProcessDirectoryEntry(
     if (name[0] == '.' && (name[1] == 0 || (name[1] == '.' && name[2] == 0))) {
         return MEDIA_SCAN_RESULT_SKIPPED;
     }
+    
+    if(strcmp(name,"$RECYCLE.BIN")==0){
+            return MEDIA_SCAN_RESULT_SKIPPED;
+    }
+	if(strcmp(name,"System Volume Information")==0){
+            return MEDIA_SCAN_RESULT_SKIPPED;
+    }
 
     int nameLength = strlen(name);
     if (nameLength + 1 > pathRemaining) {
@@ -204,12 +215,34 @@ MediaScanResult MediaScanner::doProcessDirectoryEntry(
     }
     if (type == DT_DIR) {
         bool childNoMedia = noMedia;
+       if(name[0] == 'F' && name[1] == 'O' && name[2] == 'U' && name[3] == 'N' &&name[4] == 'D' && name[5] == '.')
+        {
+            ALOGE("#####SKIP DIRTY:(%s)",path);
+            return MEDIA_SCAN_RESULT_SKIPPED;
+        }
+        if(access(path, F_OK)==0){
+                mProcessretries = RETRY_TIMES;
+        }
+        else{
+                if((mProcessretries--)>0){
+                   ALOGE("subDirPath:(%s) is not exist.. Retries:%d times..",path,mProcessretries);
+                   return MEDIA_SCAN_RESULT_SKIPPED;
+                } else{
+                   ALOGE("subDirPath:(%s) is not exist.. goto failure now..",path);
+                   return MEDIA_SCAN_RESULT_ERROR;
+                }
+        }
+
+
+        
         // set noMedia flag on directories with a name that starts with '.'
         // for example, the Mac ".Trashes" directory
         if (name[0] == '.')
             childNoMedia = true;
 
         // report the directory to the client
+        if(!isBDDirectory(path))
+        {
         if (stat(path, &statbuf) == 0) {
             status_t status = client.scanFile(path, statbuf.st_mtime, 0,
                     true /*isDirectory*/, childNoMedia);
@@ -224,9 +257,37 @@ MediaScanResult MediaScanner::doProcessDirectoryEntry(
                 client, childNoMedia);
         if (result == MEDIA_SCAN_RESULT_ERROR) {
             return MEDIA_SCAN_RESULT_ERROR;
+            }
+        }
+        else
+        {
+            if (stat(path, &statbuf) == 0)
+            {
+                status_t status = client.scanBDDirectory(path, statbuf.st_mtime, statbuf.st_size);
+                if (status) 
+                {
+                    return MEDIA_SCAN_RESULT_ERROR;
+                }
+            }
         }
     } else if (type == DT_REG) {
         stat(path, &statbuf);
+
+
+        if(access(path, F_OK)==0){
+                mProcessretries = RETRY_TIMES;
+        }
+        else{
+                if((mProcessretries--)>0){
+                   ALOGE("filePath:(%s) is not exist.. Retries:%d times..",path,mProcessretries);
+                   return MEDIA_SCAN_RESULT_SKIPPED;
+                } else{
+                   ALOGE("filePath:(%s) is not exist.. goto failure now..",path);
+                   return MEDIA_SCAN_RESULT_ERROR;
+                }
+        }
+
+        
         status_t status = client.scanFile(path, statbuf.st_mtime, statbuf.st_size,
                 false /*isDirectory*/, noMedia);
         if (status) {
@@ -237,4 +298,90 @@ MediaScanResult MediaScanner::doProcessDirectoryEntry(
     return MEDIA_SCAN_RESULT_OK;
 }
 
+bool MediaScanner::isBDDirectory(char* bdDirectory)
+{
+    if(bdDirectory == NULL)
+        return false;
+
+    struct dirent* entry;
+    char* path = new char[PATH_MAX];
+    if(path == NULL)
+    {
+        ALOGD("isBDDirectory(): malloc buffer fail");
+        return false;
+    }
+    
+    // BDMV Exist?
+    snprintf(path,PATH_MAX,"%s/BDMV",bdDirectory);
+    if(access(path, F_OK) != 0) // not exist
+    {
+        delete[] path;
+            return false;
+    }
+
+    // index.bdmv Exist?
+    snprintf(path,PATH_MAX,"%s/BDMV/index.bdmv",bdDirectory);
+    if(access(path, F_OK) != 0) // not exist
+    {
+        snprintf(path,PATH_MAX,"%s/BACKUP/index.bdmv",bdDirectory);
+        if(access(path, F_OK) != 0)
+        {
+            delete[] path;
+            return false;
+        }
+    }
+
+    // MovieObject.bdmv Exist?
+    snprintf(path,PATH_MAX,"%s/BDMV/MovieObject.bdmv",bdDirectory);
+    if(access(path, F_OK) != 0) // not exist
+    {
+        snprintf(path,PATH_MAX,"%s/BACKUP/MovieObject.bdmv",bdDirectory);
+        if(access(path, F_OK) != 0)
+        {
+            delete[] path;
+            return false;
+        }
+    }
+
+    // STREAM Exist?
+    snprintf(path,PATH_MAX,"%s/BDMV/STREAM",bdDirectory);
+    if(access(path, F_OK) != 0) // not exist
+    {
+        snprintf(path,PATH_MAX,"%s/BACKUP/STREAM",bdDirectory);
+        if(access(path, F_OK) != 0)
+        {
+            delete[] path;
+            return false;
+        }
+    }
+
+    // PLAYLIST Exist?
+    snprintf(path,PATH_MAX,"%s/BDMV/PLAYLIST",bdDirectory);
+    if(access(path, F_OK) != 0) // not exist
+    {
+        snprintf(path,PATH_MAX,"%s/BACKUP/PLAYLIST",bdDirectory);
+        if(access(path, F_OK) != 0)
+        {
+            delete[] path;
+            return false;
+        }
+    }
+
+    // CLIPINF Exist?
+    snprintf(path,PATH_MAX,"%s/BDMV/CLIPINF",bdDirectory);
+    if(access(path, F_OK) != 0) // not exist
+    {
+        snprintf(path,PATH_MAX,"%s/BACKUP/CLIPINF",bdDirectory);
+        if(access(path, F_OK) != 0)
+        {
+            delete[] path;
+            return false;
+        }
+    }
+    
+    if(path != NULL)
+        delete[] path;
+    
+    return true;
+}
 }  // namespace android

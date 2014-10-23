@@ -48,8 +48,12 @@
  *   DEFINITIONS    *
  ********************/
 
+#if 0
 // Force using hardware encoder
 #define VIDEOEDITOR_FORCECODEC kHardwareCodecsOnly
+#else
+#define VIDEOEDITOR_FORCECODEC kSoftwareCodecsOnly
+#endif
 
 #if !defined(VIDEOEDITOR_FORCECODEC)
     #error "Cannot force DSI retrieval if codec type is not fixed"
@@ -759,6 +763,8 @@ M4OSA_ERR VideoEditorVideoEncoder_processInputBuffer(
         M4OSA_UInt8* pData = M4OSA_NULL;
         buffer = new MediaBuffer((size_t)size);
         pData = (M4OSA_UInt8*)buffer->data() + buffer->range_offset();
+        memset(pData, 0, sizeY);
+        memset(pData+sizeY, 0x80, sizeU <<1);
 
         // Prepare the output image for pre-processing
         pOutPlane[0].u_width   = pEncoderContext->mCodecParams->FrameWidth;
@@ -1100,7 +1106,7 @@ M4OSA_ERR VideoEditorVideoEncoder_stop(M4ENCODER_Context pContext) {
     VIDEOEDITOR_CHECK(M4NO_ERROR == err, err);
 
     // Process the remaining buffers if necessary
-    if ( (BUFFERING | READING) & pEncoderContext->mState ) {
+    if ( (BUFFERING | READING | STARTED) & pEncoderContext->mState ) {
         while (1)  {
             MediaBuffer *outputBuffer =
                 pEncoderContext->mPuller->getBufferBlocking();

@@ -108,6 +108,7 @@ CameraClient::~CameraClient() {
     LOG1("CameraClient::~CameraClient E (pid %d, this %p)", callingPid, this);
 
     disconnect();
+    finishCameraOps();
     LOG1("CameraClient::~CameraClient X (pid %d, this %p)", callingPid, this);
 }
 
@@ -243,8 +244,8 @@ void CameraClient::disconnect() {
     // idle state.
     // Turn off all messages.
     disableMsgType(CAMERA_MSG_ALL_MSGS);
+    mHardware->cancelPicture();            /* ddl@rock-chips.com */
     mHardware->stopPreview();
-    mHardware->cancelPicture();
     // Release the hardware resources.
     mHardware->release();
 
@@ -436,14 +437,19 @@ status_t CameraClient::startRecordingMode() {
 // stop preview mode
 void CameraClient::stopPreview() {
     LOG1("stopPreview (pid %d)", getCallingPid());
+    int msg_enable;
     Mutex::Autolock lock(mLock);
     if (checkPidAndHardware() != NO_ERROR) return;
 
 
     disableMsgType(CAMERA_MSG_PREVIEW_FRAME);
+    msg_enable = mMsgEnabled;
+    disableMsgType(CAMERA_MSG_ALL_MSGS);
+    mHardware->cancelPicture();            /* ddl@rock-chips.com */
     mHardware->stopPreview();
 
     mPreviewBuffer.clear();
+    enableMsgType(msg_enable);
 }
 
 // stop recording mode

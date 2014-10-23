@@ -48,6 +48,7 @@ NuPlayer::Renderer::Renderer(
       mHasAudio(false),
       mHasVideo(false),
       mSyncQueues(false),
+      mIsSlientData(false),
       mPaused(false),
       mVideoRenderingStarted(false),
       mVideoRenderingStartGeneration(0),
@@ -140,7 +141,7 @@ void NuPlayer::Renderer::onMessageReceived(const sp<AMessage> &msg) {
 
                 // Let's give it more data after about half that time
                 // has elapsed.
-                postDrainAudioQueue(delayUs / 2);
+                postDrainAudioQueue(10000);
             }
             break;
         }
@@ -296,7 +297,21 @@ bool NuPlayer::Renderer::onDrainAudioQueue() {
 
             mAnchorTimeRealUs =
                 ALooper::GetNowUs() + realTimeOffsetUs;
-        }
+
+            const uint8_t *ptr = entry->mBuffer->data();
+            const uint8_t *end = ptr + entry->mBuffer->size(); 
+            while (ptr < end) {
+                if (*ptr != 0){ 
+                   mIsSlientData = false;
+                   break;
+                }
+                ++ptr;
+            }
+            if (ptr == end){
+                mIsSlientData = true;
+                ALOGV("buffer data are slient,,,,");
+            }
+       }
 
         size_t copy = entry->mBuffer->size() - entry->mOffset;
         if (copy > numBytesAvailableToWrite) {
@@ -369,8 +384,17 @@ void NuPlayer::Renderer::postDrainVideoQueue() {
             delayUs = realTimeUs - ALooper::GetNowUs();
         }
     }
-
-    msg->post(delayUs);
+    
+    if (mIsSlientData)   //slient audio , render video rapidly 
+     msg->post(8000);
+    else{
+     if (delayUs > 100000)
+        msg->post(delayUs);
+     else if (delayUs > 50000)
+       msg->post(delayUs/2);
+    else
+       msg->post(8000);
+    }
 
     mDrainVideoQueuePending = true;
 }
@@ -416,7 +440,7 @@ void NuPlayer::Renderer::onDrainVideoQueue() {
         ALOGV("rendering video at media time %.2f secs", mediaTimeUs / 1E6);
     }
 
-    entry->mNotifyConsumed->setInt32("render", !tooLate);
+    entry->mNotifyConsumed->setInt32("render", 1);
     entry->mNotifyConsumed->post();
     mVideoQueue.erase(mVideoQueue.begin());
     entry = NULL;

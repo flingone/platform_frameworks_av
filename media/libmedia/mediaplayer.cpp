@@ -71,6 +71,28 @@ MediaPlayer::~MediaPlayer()
     IPCThreadState::self()->flushCommands();
 }
 
+/*$_rbox_$_modify_begin_hh for bluray*/
+status_t MediaPlayer::isBluray()
+{
+    ALOGE("isBluray");
+    Mutex::Autolock _l(mLock);
+    const bool hasBeenInitialized =
+            (mCurrentState != MEDIA_PLAYER_STATE_ERROR) &&
+            ((mCurrentState & MEDIA_PLAYER_IDLE) != MEDIA_PLAYER_IDLE);
+    if((mPlayer != NULL) && hasBeenInitialized) 
+    {
+        return  mPlayer->isBluray();
+    }
+    else
+    {
+        ALOGE("isBluray() fail");
+    }
+
+    return 1;
+}
+/*$_rbox_$_modify_end*/
+
+
 void MediaPlayer::disconnect()
 {
     ALOGV("disconnect");
@@ -409,6 +431,11 @@ status_t MediaPlayer::getDuration_l(int *msec)
             *msec = durationMs;
         }
         return ret;
+    }
+    else if(isBluray())
+    {
+    	  *msec = 0;
+    	  return OK;
     }
     ALOGE("Attempt to call getDuration without a valid mediaplayer");
     return INVALID_OPERATION;

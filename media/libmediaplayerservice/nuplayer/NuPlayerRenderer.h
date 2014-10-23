@@ -91,6 +91,7 @@ private:
 
     bool mDrainAudioQueuePending;
     bool mDrainVideoQueuePending;
+    bool mIsSlientData;
     int32_t mAudioQueueGeneration;
     int32_t mVideoQueueGeneration;
 

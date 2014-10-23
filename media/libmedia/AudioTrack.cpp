@@ -1,3 +1,4 @@
+
 /*
 **
 ** Copyright 2007, The Android Open Source Project
@@ -26,6 +27,7 @@
 #include <utils/Log.h>
 #include <private/media/AudioTrackShared.h>
 #include <media/IAudioFlinger.h>
+#include <cutils/properties.h>
 
 #define WAIT_PERIOD_MS                  10
 #define WAIT_STREAM_END_TIMEOUT_SEC     120
@@ -222,6 +224,7 @@ status_t AudioTrack::set(
 
     ALOGV("set() streamType %d frameCount %u flags %04x", streamType, frameCount, flags);
 
+    ALOGI("set() streamType %d frameCount %d flags %04x channelMask %d sampleRate %d format %d", streamType, frameCount, flags, channelMask, sampleRate, format);
     AutoMutex lock(mLock);
 
     // invariant that mAudioTrack != 0 is true only after set() returns successfully
@@ -286,6 +289,7 @@ status_t AudioTrack::set(
         ALOGE("Invalid channel mask %#x", channelMask);
         return BAD_VALUE;
     }
+
     mChannelMask = channelMask;
     uint32_t channelCount = popcount(channelMask);
     mChannelCount = channelCount;
@@ -298,6 +302,7 @@ status_t AudioTrack::set(
         mFrameSizeAF = sizeof(uint8_t);
     }
 
+
     audio_io_handle_t output = AudioSystem::getOutput(
                                     streamType,
                                     sampleRate, format, channelMask,
@@ -308,6 +313,10 @@ status_t AudioTrack::set(
         ALOGE("Could not get audio output for stream type %d", streamType);
         return BAD_VALUE;
     }
+    if(2 != output)
+        property_set("media.cfg.audio.soundeffect", "false");
+    else
+        property_set("media.cfg.audio.soundeffect", "true");
 
     mVolume[LEFT] = 1.0f;
     mVolume[RIGHT] = 1.0f;
@@ -920,9 +929,11 @@ status_t AudioTrack::createTrack_l(
         }
 
         size_t minFrameCount = (afFrameCount*sampleRate*minBufCount)/afSampleRate;
+        if(flags == AUDIO_OUTPUT_FLAG_DIRECT)
+            minFrameCount = afFrameCount*minBufCount;
         ALOGV("minFrameCount: %u, afFrameCount=%d, minBufCount=%d, sampleRate=%u, afSampleRate=%u"
-                ", afLatency=%d",
-                minFrameCount, afFrameCount, minBufCount, sampleRate, afSampleRate, afLatency);
+                ", afLatency=%d, frameCount: %d",
+                minFrameCount, afFrameCount, minBufCount, sampleRate, afSampleRate, afLatency, frameCount);
 
         if (frameCount == 0) {
             frameCount = minFrameCount;
@@ -931,6 +942,7 @@ status_t AudioTrack::createTrack_l(
             ALOGV("Minimum buffer size corrected from %d to %d",
                      frameCount, minFrameCount);
             frameCount = minFrameCount;
+            mNotificationFramesAct = frameCount/2;			
         }
         // Make sure that application is notified with sufficient margin before underrun
         if (mNotificationFramesAct == 0 || mNotificationFramesAct > frameCount/nBuffering) {

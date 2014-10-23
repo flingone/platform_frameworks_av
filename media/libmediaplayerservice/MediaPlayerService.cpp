@@ -294,7 +294,10 @@ sp<IDrm> MediaPlayerService::makeDrm() {
 }
 
 sp<IHDCP> MediaPlayerService::makeHDCP(bool createEncryptionModule) {
-    return new HDCP(createEncryptionModule);
+    if (mHDCP == NULL)
+       mHDCP = new HDCP(createEncryptionModule);
+    return mHDCP;
+ 
 }
 
 sp<IRemoteDisplay> MediaPlayerService::listenForRemoteDisplay(
@@ -652,6 +655,14 @@ status_t MediaPlayerService::Client::setDataSource(
         return mStatus;
     } else {
         player_type playerType = MediaPlayerFactory::getPlayerType(this, url);
+        
+         /*$_rbox_$_modify_begin_hh for bluray*/
+        if(playerType == NO_PLAYER)
+        {
+            return NO_INIT;
+        }
+        /*$_rbox_$_modify_end*/
+        
         sp<MediaPlayerBase> p = setDataSource_pre(playerType);
         if (p == NULL) {
             return NO_INIT;
@@ -692,6 +703,12 @@ status_t MediaPlayerService::Client::setDataSource(int fd, int64_t offset, int64
                                                                fd,
                                                                offset,
                                                                length);
+    /*$_rbox_$_modify_begin_hh for bluray*/
+    if(playerType == NO_PLAYER)
+    {
+        return NO_INIT;
+    }
+    /*$_rbox_$_modify_end*/
     sp<MediaPlayerBase> p = setDataSource_pre(playerType);
     if (p == NULL) {
         return NO_INIT;
@@ -706,6 +723,13 @@ status_t MediaPlayerService::Client::setDataSource(
         const sp<IStreamSource> &source) {
     // create the right type of player
     player_type playerType = MediaPlayerFactory::getPlayerType(this, source);
+
+    /*$_rbox_$_modify_begin_hh for bluray*/
+    if(playerType == NO_PLAYER)
+    {
+        return NO_INIT;
+    }
+    /*$_rbox_$_modify_end*/
     sp<MediaPlayerBase> p = setDataSource_pre(playerType);
     if (p == NULL) {
         return NO_INIT;
@@ -786,6 +810,26 @@ status_t MediaPlayerService::Client::invoke(const Parcel& request,
     if (p == NULL) return UNKNOWN_ERROR;
     return p->invoke(request, reply);
 }
+
+/*$_rbox_$_modify_begin_hh for bluray*/
+status_t MediaPlayerService::Client::isBluray()
+{
+    ALOGV("MediaPlayerService: isBluray");
+    sp<MediaPlayerBase> p = getPlayer();
+    if (p == NULL) 
+    {
+        return 1;
+    }
+    ALOGV("MediaPlayerService: p->playerType = %d",p->playerType());
+    if(p->playerType() == RKBOXFF_PLAYER)
+    {
+        return 0;
+    }
+    
+    return 1;
+}
+/*$_rbox_$_modify_end*/
+
 
 // This call doesn't need to access the native player.
 status_t MediaPlayerService::Client::setMetadataFilter(const Parcel& filter)
@@ -1473,6 +1517,12 @@ status_t MediaPlayerService::AudioOutput::open(
         }
 
         frameCount = (sampleRate*afFrameCount*bufferCount)/afSampleRate;
+
+        if(AUDIO_OUTPUT_FLAG_DIRECT == flags){
+            afSampleRate = sampleRate;
+            frameCount = afFrameCount*bufferCount;
+            ALOGI("AUDIO_OUTPUT_FLAG_DIRECT, AFSR %d, FC %d\n", afSampleRate, frameCount);
+        }
     }
 
     if (channelMask == CHANNEL_MASK_USE_CHANNEL_ORDER) {

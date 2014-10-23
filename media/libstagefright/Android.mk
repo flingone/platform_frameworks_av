@@ -66,6 +66,7 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/external/flac/include \
         $(TOP)/external/tremolo \
         $(TOP)/external/openssl/include \
+		$(TOP)/hardware/rk29/libon2
 
 LOCAL_SHARED_LIBRARIES := \
         libbinder \
@@ -89,7 +90,8 @@ LOCAL_SHARED_LIBRARIES := \
         libutils \
         libvorbisidec \
         libz \
-        libpowermanager
+        libpowermanager \
+		libvpu
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_color_conversion \

@@ -206,6 +206,13 @@ void CameraService::onDeviceStatusChanged(int cameraId,
 }
 
 int32_t CameraService::getNumberOfCameras() {
+//$_rbox_$_modify_$_chenzhi_20120605: usb camera plugin after boot, init again
+//$_rbox_$_modify_$_begin
+    if(mNumberOfCameras == 0) {
+       ALOGE("no camera found before! check again...");
+       onFirstRef();
+    }
+//$_rbox_$_modify_$_end
     return mNumberOfCameras;
 }
 
