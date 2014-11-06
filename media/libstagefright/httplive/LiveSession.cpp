@@ -143,6 +143,9 @@ status_t LiveSession::dequeueAccessUnit(
 }
 
 status_t LiveSession::getStreamFormat(StreamType stream, sp<AMessage> *format) {
+    if(!mStreamMask){
+		  return -EAGAIN;
+	}  // add by rk 
     if (!(mStreamMask & stream)) {
         return UNKNOWN_ERROR;
     }
@@ -514,7 +517,8 @@ sp<PlaylistFetcher> LiveSession::addFetcher(const char *uri) {
 
 status_t LiveSession::fetchFile(
         const char *url, sp<ABuffer> *out,
-        int64_t range_offset, int64_t range_length) {
+        int64_t range_offset, int64_t range_length,
+        String8 *actualUrl) {
     *out = NULL;
 
     sp<DataSource> source;
@@ -599,6 +603,12 @@ status_t LiveSession::fetchFile(
     }
 
     *out = buffer;
+    if (actualUrl != NULL) {
+        *actualUrl = source->getUri();
+        if (actualUrl->isEmpty()) {
+            *actualUrl = url;
+        }
+    }
 
     return OK;
 }
@@ -610,7 +620,8 @@ sp<M3UParser> LiveSession::fetchPlaylist(
     *unchanged = false;
 
     sp<ABuffer> buffer;
-    status_t err = fetchFile(url, &buffer);
+    String8 actualUrl;
+    status_t err = fetchFile(url, &buffer, 0, -1, &actualUrl);
 
     if (err != OK) {
         return NULL;
@@ -644,7 +655,7 @@ sp<M3UParser> LiveSession::fetchPlaylist(
 #endif
 
     sp<M3UParser> playlist =
-        new M3UParser(url, buffer->data(), buffer->size());
+        new M3UParser(actualUrl.string(), buffer->data(), buffer->size());
 
     if (playlist->initCheck() != OK) {
         ALOGE("failed to parse .m3u8 playlist");
@@ -951,6 +962,11 @@ void LiveSession::onChangeConfiguration2(const sp<AMessage> &msg) {
     // corresponding decoders and will post the reply once that's done.
     // Handling the reply will continue executing below in
     // onChangeConfiguration3.
+    if(changedMask){
+        //add by rk we stream change we will no offer getStreamFormat
+        //before creating new fetchers done
+        mStreamMask = 0;
+    }
     sp<AMessage> notify = mNotify->dup();
     notify->setInt32("what", kWhatStreamsChanged);
     notify->setInt32("changedMask", changedMask);
@@ -988,7 +1004,7 @@ void LiveSession::onChangeConfiguration3(const sp<AMessage> &msg) {
     }
     mRealTimeBaseUs = ALooper::GetNowUs() - timeUs;
 
-    mStreamMask = streamMask;
+
     mAudioURI = audioURI;
     mVideoURI = videoURI;
     mSubtitleURI = subtitleURI;
@@ -1033,6 +1049,8 @@ void LiveSession::onChangeConfiguration3(const sp<AMessage> &msg) {
         ALOGV("creating new fetchers for mask 0x%08x", streamMask);
     }
 
+    //add for keep streamMask by rk
+    int tmpMark = streamMask;
     while (streamMask != 0) {
         StreamType streamType = (StreamType)(streamMask & ~(streamMask - 1));
 
@@ -1058,7 +1076,7 @@ void LiveSession::onChangeConfiguration3(const sp<AMessage> &msg) {
         if ((streamMask & STREAMTYPE_AUDIO) && uri == audioURI) {
             audioSource = mPacketSources.valueFor(STREAMTYPE_AUDIO);
             audioSource->clear();
-
+            audioSource->setFormat(NULL); //clean the format add by rk
             streamMask &= ~STREAMTYPE_AUDIO;
         }
 
@@ -1066,6 +1084,7 @@ void LiveSession::onChangeConfiguration3(const sp<AMessage> &msg) {
         if ((streamMask & STREAMTYPE_VIDEO) && uri == videoURI) {
             videoSource = mPacketSources.valueFor(STREAMTYPE_VIDEO);
             videoSource->clear();
+            videoSource->setFormat(NULL); //clean the format add by rk
 
             streamMask &= ~STREAMTYPE_VIDEO;
         }
@@ -1080,6 +1099,8 @@ void LiveSession::onChangeConfiguration3(const sp<AMessage> &msg) {
 
         fetcher->startAsync(audioSource, videoSource, subtitleSource, timeUs);
     }
+    if(tmpMark)
+        mStreamMask = tmpMark;
 
     // All fetchers have now been started, the configuration change
     // has completed.

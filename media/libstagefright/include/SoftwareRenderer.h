@@ -55,6 +55,7 @@ private:
     int32_t rga_fd;
     int32_t power_fd;
 	int32_t mHttpFlag;
+    int32_t mSwdecFlag;
     SoftwareRenderer(const SoftwareRenderer &);
     SoftwareRenderer &operator=(const SoftwareRenderer &);
 };

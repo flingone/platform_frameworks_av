@@ -767,7 +767,7 @@ status_t ANetworkSession::Session::writeMore() {
         do {
             const Fragment &frag = *mOutFragments.begin();
             const sp<ABuffer> &datagram = frag.mBuffer;
-			if(1) 
+			if(0) 
 		  	{
 			  unsigned char* buff = (unsigned char*)datagram->data();
 			  int	  len = datagram->size();

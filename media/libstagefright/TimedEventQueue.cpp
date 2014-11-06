@@ -354,13 +354,14 @@ void TimedEventQueue::releaseWakeLock_l(bool force)
     }
     CHECK(mWakeLockCount != 0);
     if (--mWakeLockCount == 0) {
-        CHECK(mWakeLockToken != 0);
+        if(mWakeLockToken > 0){
         if (mPowerManager != 0) {
             int64_t token = IPCThreadState::self()->clearCallingIdentity();
             mPowerManager->releaseWakeLock(mWakeLockToken, 0);
             IPCThreadState::self()->restoreCallingIdentity(token);
         }
         mWakeLockToken.clear();
+        }
     }
 }
 

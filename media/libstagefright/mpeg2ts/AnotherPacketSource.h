@@ -42,7 +42,7 @@ struct AnotherPacketSource : public MediaSource {
             MediaBuffer **buffer, const ReadOptions *options = NULL);
 
     bool hasBufferAvailable(status_t *finalResult);
-
+	
 	int64_t getCurrentPackTime();
 	
     // Returns the difference between the last and the first queued
@@ -63,7 +63,7 @@ struct AnotherPacketSource : public MediaSource {
 	uint32_t  quen_memUsed;
     uint32_t quen_num;
     status_t dequeueAccessUnit(sp<ABuffer> *buffer);
-    void clear();
+	void clear();
     bool mVideoFlag;
     bool mIsAudio;
     bool discontinuityFlag;

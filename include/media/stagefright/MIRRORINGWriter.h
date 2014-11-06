@@ -24,7 +24,7 @@
 #include <media/stagefright/foundation/ALooper.h>
 #include <media/stagefright/MediaWriter.h>
 #include <media/stagefright/SenderSource.h>
-//#include <../../../media/libstagefright/include/RkOn2Encoder.h>
+#include <../../../media/libstagefright/include/RkOn2Encoder.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <pthread.h>
@@ -89,7 +89,7 @@ struct MIRRORINGWriter : public MediaWriter {
     virtual status_t dump(int fd, const Vector<String16>& args);
 
     void onMessageReceived(const sp<AMessage> &msg);
-	int		HasVideo(){return 1;};//(mRkOn2Encoder == NULL) ? 0 : 1;};
+	int		HasVideo(){return (mRkOn2Encoder == NULL) ? 0 : 1;};
 	static MediaWriter* createInstanceEx(unsigned long addr, unsigned short local_port,unsigned short remort_port);
 
 protected:
@@ -154,7 +154,7 @@ private:
     int64_t mNumTSPacketsWritten;
     int64_t mNumTSPacketsBeforeMeta;
 
-	void * mRkOn2Encoder;//RkOn2Encoder *mRkOn2Encoder;
+	RkOn2Encoder *mRkOn2Encoder;
 	AVCEncParams mAVCEncParams;
 
 	

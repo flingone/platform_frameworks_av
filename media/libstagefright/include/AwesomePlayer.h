@@ -45,8 +45,11 @@ class DecryptHandle;
 
 class TimedTextDriver;
 struct WVMExtractor;
+struct TvpadSource;
 struct FrameQueueManage;
 struct FrameQueue;
+struct RtpSource;
+struct WimoSource;
 
 struct AwesomeRenderer : public RefBase {
     AwesomeRenderer() {}
@@ -370,7 +373,13 @@ private:
     int64_t preMediaTimeus;
     int64_t mPreSeekTimeUs;
     int64_t mPreSeekSysTimeUs;
-    uint32_t Resver[44];
+	sp<RtpSource> mRtpSource;
+	sp<WimoSource> mWimoSource;
+	int32_t wimo_flag;
+	bool isTvpad;
+	bool wireless_player_flag;
+    sp<TvpadSource> mTvpadSource;
+    uint32_t Resver[38];
     AwesomePlayer(const AwesomePlayer &);
     AwesomePlayer &operator=(const AwesomePlayer &);
 };

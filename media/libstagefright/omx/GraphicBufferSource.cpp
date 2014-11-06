@@ -159,7 +159,6 @@ void GraphicBufferSource::omxIdle() {
         mExecuting = false;
     }
 }
-
 void GraphicBufferSource::omxLoaded(){
     Mutex::Autolock autoLock(mMutex);
     if (!mExecuting) {

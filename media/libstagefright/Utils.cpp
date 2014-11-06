@@ -511,7 +511,7 @@ status_t sendMetaDataToHal(sp<MediaPlayerBase::AudioSink>& sink,
     return OK;
 }
 
-struct mime_conv_t {
+ struct mime_conv_t {
     const char* mime;
     audio_format_t format;
 };

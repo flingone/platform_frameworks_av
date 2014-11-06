@@ -416,22 +416,31 @@ static bool MakeURL(const char *baseURL, const char *url, AString *out) {
     } else {
         // URL is a relative path
 
-        size_t n = strlen(baseURL);
-        if (baseURL[n - 1] == '/') {
-            out->setTo(baseURL);
-            out->append(url);
+        const char *qsPos = strchr(baseURL, '?');
+        size_t end;
+        if (qsPos != NULL) {
+            end = qsPos - baseURL;
         } else {
-            const char *slashPos = strrchr(baseURL, '/');
-
-            if (slashPos > &baseURL[6]) {
-                out->setTo(baseURL, slashPos - baseURL);
-            } else {
-                out->setTo(baseURL);
-            }
-
-            out->append("/");
-            out->append(url);
+            end = strlen(baseURL);
         }
+        // Check for the last slash before a potential query string
+        for (ssize_t pos = end - 1; pos >= 0; pos--) {
+            if (baseURL[pos] == '/') {
+                end = pos;
+                break;
+            }
+        }
+
+        // Check whether the found slash actually is part of the path
+        // and not part of the "http://".
+        if (end > 6) {
+            out->setTo(baseURL, end);
+        } else {
+            out->setTo(baseURL);
+        }
+
+        out->append("/");
+        out->append(url);
     }
 
     ALOGV("base:'%s', url:'%s' => '%s'", baseURL, url, out->c_str());
@@ -608,7 +617,7 @@ status_t M3UParser::parseMetaDataDuration(
     if (meta->get() == NULL) {
         *meta = new AMessage;
     }
-    (*meta)->setInt64(key, (int64_t)x * 1E6);
+    (*meta)->setInt64(key, (int64_t)(x * 1E6));
 
     return OK;
 }
