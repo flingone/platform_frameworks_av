@@ -38,6 +38,8 @@ const uint32_t SampleTable::kSampleSizeType32 = FOURCC('s', 't', 's', 'z');
 // static
 const uint32_t SampleTable::kSampleSizeTypeCompact = FOURCC('s', 't', 'z', '2');
 
+#define min(a,b) ((a) > (b) ? (b) : (a))
+
 ////////////////////////////////////////////////////////////////////////////////
 
 struct SampleTable::CompositionDeltaLookup {
@@ -107,30 +109,36 @@ uint32_t SampleTable::CompositionDeltaLookup::getCompositionTimeOffset(
 
 SampleTable::SampleTable(const sp<DataSource> &source)
     : mDataSource(source),
+      mMediaType(MEDIA_TYPE_UNKNOWN),
+      mCodecId(CODECID_UNKNOWN),
+      mChannelCount(0),
+      mSamplePerPacket(0),
+      mBytesPerFrame(0),
       mChunkOffsetOffset(-1),
       mChunkOffsetType(0),
       mNumChunkOffsets(0),
+      mChunkOffsetFieldSize(0),
+      mOffsetToChunk(NULL),
       mSampleToChunkOffset(-1),
       mNumSampleToChunkOffsets(0),
       mSampleSizeOffset(-1),
       mSampleSizeFieldSize(0),
       mDefaultSampleSize(0),
       mNumSampleSizes(0),
+      mSizeToSample(NULL),
       mTimeToSampleCount(0),
       mTimeToSample(NULL),
       mSampleTimeEntries(NULL),
-      //mCompositionTimeDeltaEntries(NULL),
-      //mNumCompositionTimeDeltaEntries(0),
-	  mComposTimeOffsetCount(0),
-      mComposTimeOffset(NULL),
+      mCompositionTimeDeltaEntries(NULL),
+      mNumCompositionTimeDeltaEntries(0),
       mCompositionDeltaLookup(new CompositionDeltaLookup),
       mSyncSampleOffset(-1),
       mNumSyncSamples(0),
       mSyncSamples(NULL),
       mLastSyncSampleIndex(0),
-      mSampleTableIndex(NULL),
-      mIndexEntry(0),
-      mSamplesize(0),
+      mPartialSyncSampleOffset(-1),
+      mPartialNumSyncSamples(0),
+      mPartialSyncSamples(NULL),
       mSampleToChunkEntries(NULL) {
     mSampleIterator = new SampleIterator(this);
 }
@@ -141,24 +149,24 @@ SampleTable::~SampleTable() {
 
     delete[] mSyncSamples;
     mSyncSamples = NULL;
-    if(mSampleTableIndex){
-        delete[] mSampleTableIndex;
-        mSampleTableIndex = NULL;
-    }
 
     delete mCompositionDeltaLookup;
     mCompositionDeltaLookup = NULL;
 
-   // delete[] mCompositionTimeDeltaEntries;
-    //mCompositionTimeDeltaEntries = NULL;
+    delete[] mCompositionTimeDeltaEntries;
+    mCompositionTimeDeltaEntries = NULL;
 
     delete[] mSampleTimeEntries;
     mSampleTimeEntries = NULL;
 
     delete[] mTimeToSample;
     mTimeToSample = NULL;
-    delete[] mComposTimeOffset;
-    mComposTimeOffset = NULL;
+
+    delete[] mOffsetToChunk;
+    mOffsetToChunk = NULL;
+
+    delete[] mSizeToSample;
+    mSizeToSample = NULL;
 
     delete mSampleIterator;
     mSampleIterator = NULL;
@@ -200,77 +208,32 @@ status_t SampleTable::setChunkOffsetParams(
     mNumChunkOffsets = U32_AT(&header[4]);
 
     if (mChunkOffsetType == kChunkOffsetType32) {
+        mChunkOffsetFieldSize = 32;
         if (data_size < 8 + mNumChunkOffsets * 4) {
             return ERROR_MALFORMED;
         }
     } else {
+        mChunkOffsetFieldSize = 64;
         if (data_size < 8 + mNumChunkOffsets * 8) {
             return ERROR_MALFORMED;
         }
     }
 
-    return OK;
-}
-status_t SampleTable::mov_build_index(){
-    unsigned chunk_samples, total = 0;
-    unsigned int stsc_index = 0;
-    unsigned samples_per_frame = 1;
-    unsigned int enty_index = 0;
-    int64_t current_offset;
-    int64_t current_dts = 0;
-    for(int i = 0;i < mNumSampleToChunkOffsets; i++){
-        unsigned count, chunk_count;
-        chunk_samples = mSampleToChunkEntries[i].samplesPerChunk;
-        if (i != mNumSampleToChunkOffsets - 1 && samples_per_frame &&chunk_samples%samples_per_frame) {
-            ALOGE("error unaligned chunk\n");
-            return OK;
+    uint32_t fieldbytes = mChunkOffsetFieldSize / 8;
+    mOffsetToChunk = new off64_t[mNumChunkOffsets * 8];
+
+    for(int i = 0; i < mNumChunkOffsets; i++) {
+        if (mDataSource->readAt(
+            mChunkOffsetOffset + 8 + i * fieldbytes, &mOffsetToChunk[i], fieldbytes) < fieldbytes) {
+            return ERROR_IO;
         }
-        if (samples_per_frame >= 160) { // gsm
-            count = chunk_samples / samples_per_frame;
-        } else if (samples_per_frame > 1) {
-            unsigned samples = (1024/samples_per_frame)*samples_per_frame;
-            count = (chunk_samples+samples-1) / samples;
+        if (mChunkOffsetType == kChunkOffsetType32) {
+            mOffsetToChunk[i] = ntohl(mOffsetToChunk[i]);
         } else {
-            count = (chunk_samples+1023) / 1024;
-        }
-        if (i < mNumSampleToChunkOffsets - 1)
-            chunk_count = mSampleToChunkEntries[i+1].startChunk- mSampleToChunkEntries[i].startChunk;
-        else
-            chunk_count = mNumChunkOffsets - (mSampleToChunkEntries[i].startChunk - 1);
-        total += chunk_count * count;
-    }
-    mSampleTableIndex = new AVIndexEntry[total];
-    mIndexEntry = total;
-    for (int i = 0; i < mNumChunkOffsets; i++) {
-        if(mSampleIterator->getChunkOffset(i,&current_offset)){
-            ALOGE("get chunk offset may be wrong");
-            return OK;
-        }
-        if (stsc_index + 1 < mNumSampleToChunkOffsets &&
-        i + 1 == mSampleToChunkEntries[stsc_index + 1].startChunk)
-            stsc_index++;
-        chunk_samples = mSampleToChunkEntries[stsc_index].samplesPerChunk;
-        while (chunk_samples > 0) {
-            unsigned size, samples;
-            if (samples_per_frame >= 160) { // gsm
-                samples = samples_per_frame;
-            } else {
-                samples = 1024 > chunk_samples?chunk_samples:1024;
-                size = samples*mSamplesize;//(sample_size)
-            }
-            if (enty_index >= total) {
-                ALOGE("wrong chunk count %d\n", total);
-                return OK;
-            }
-            mSampleTableIndex[enty_index].pos = current_offset;
-            mSampleTableIndex[enty_index].timestamp = current_dts;
-            mSampleTableIndex[enty_index].size = size;
-            current_offset += size;
-            current_dts += samples;
-            chunk_samples -= samples;
-            enty_index++;
+            mOffsetToChunk[i] = ntoh64(mOffsetToChunk[i]);
         }
     }
+
     return OK;
 }
 
@@ -382,6 +345,24 @@ status_t SampleTable::setSampleSizeParams(
         }
     }
 
+    uint32_t fieldbytes = mSampleSizeFieldSize / 8;
+    mSizeToSample = new uint32_t[mNumSampleSizes * 4];
+
+    for(int i = 0; i < mNumSampleSizes; i++) {
+    if (mDataSource->readAt(mSampleSizeOffset + 12 + i * fieldbytes,
+                            &mSizeToSample[i], fieldbytes) < fieldbytes) {
+            return ERROR_IO;
+        }
+
+        if (mSampleSizeFieldSize == 32) {
+            mSizeToSample[i] = ntohl(mSizeToSample[i]);
+        } else if (mSampleSizeFieldSize == 16) {
+            mSizeToSample[i] = ntohs(mSizeToSample[i]);
+        } else if (mSampleSizeFieldSize == 8) {
+            ALOGV("Do nothing !");
+        }
+    }
+
     return OK;
 }
 
@@ -417,7 +398,7 @@ status_t SampleTable::setTimeToSampleParams(
 
     return OK;
 }
-#if 0
+
 status_t SampleTable::setCompositionTimeToSampleParams(
         off64_t data_offset, size_t data_size) {
     ALOGI("There are reordered frames present.");
@@ -465,32 +446,6 @@ status_t SampleTable::setCompositionTimeToSampleParams(
 
     return OK;
 }
-#endif
-status_t SampleTable::setComposTimeOffParams(
-        off64_t data_offset, size_t data_size) {
-    if (mComposTimeOffset != NULL || data_size < 8) {
-        return ERROR_MALFORMED;
-    }
-    uint8_t header[8];
-    if (mDataSource->readAt(
-                data_offset, header, sizeof(header)) < (ssize_t)sizeof(header)) {
-        return ERROR_IO;
-    }
-    if (U32_AT(header) != 0) {
-        return ERROR_MALFORMED;
-    }
-    mComposTimeOffsetCount = U32_AT(&header[4]);
-    mComposTimeOffset = new uint32_t[mComposTimeOffsetCount * 2];
-    size_t size = sizeof(uint32_t) * mComposTimeOffsetCount * 2;
-    if (mDataSource->readAt(
-                data_offset + 8, mComposTimeOffset, size) < (ssize_t)size) {
-        return ERROR_IO;
-    }
-    for (uint32_t i = 0; i < mComposTimeOffsetCount * 2; ++i) {
-        mComposTimeOffset[i] = ntohl(mComposTimeOffset[i]);
-    }
-    return OK;
-}
 
 status_t SampleTable::setSyncSampleParams(off64_t data_offset, size_t data_size) {
     if (mSyncSampleOffset >= 0 || data_size < 8) {
@@ -530,6 +485,106 @@ status_t SampleTable::setSyncSampleParams(off64_t data_offset, size_t data_size)
     return OK;
 }
 
+status_t SampleTable::addPartialSyncSample(off64_t data_offset, size_t data_size) {
+    if (mPartialSyncSampleOffset >= 0 || data_size < 8) {
+        return ERROR_MALFORMED;
+    }
+
+    mPartialSyncSampleOffset = data_offset;
+
+    uint8_t header[8];
+    if (mDataSource->readAt(
+                data_offset, header, sizeof(header)) < (ssize_t)sizeof(header)) {
+        return ERROR_IO;
+    }
+
+    if (U32_AT(header) != 0) {
+        // Expected version = 0, flags = 0.
+        return ERROR_MALFORMED;
+    }
+
+    mPartialNumSyncSamples = U32_AT(&header[4]);
+
+    if (mPartialNumSyncSamples < 2) {
+        ALOGV("Table of sync samples is empty or has only a single entry!");
+    }
+
+    mPartialSyncSamples = new uint32_t[mPartialNumSyncSamples];
+    size_t size = mPartialNumSyncSamples * sizeof(uint32_t);
+    if (mDataSource->readAt(mPartialSyncSampleOffset + 8, mPartialSyncSamples, size)
+            != (ssize_t)size) {
+        return ERROR_IO;
+    }
+
+    for (size_t i = 0; i < mPartialNumSyncSamples; ++i) {
+        mPartialSyncSamples[i] = ntohl(mPartialSyncSamples[i]) - 1;
+    }
+
+    if (mSyncSamples) {
+        uint32_t *mTempSyncSamples;
+        mTempSyncSamples = new uint32_t[mNumSyncSamples];
+        memcpy(mTempSyncSamples, mSyncSamples, 4*mNumSyncSamples);
+        delete mSyncSamples;
+        mSyncSamples = new uint32_t[mPartialNumSyncSamples + mNumSyncSamples];
+        memcpy(mSyncSamples, mTempSyncSamples, 4*mNumSyncSamples);
+        memcpy(mSyncSamples + mNumSyncSamples, mPartialSyncSamples,4*mPartialNumSyncSamples);
+        mNumSyncSamples = mPartialNumSyncSamples + mNumSyncSamples;
+        delete mTempSyncSamples;
+        delete mPartialSyncSamples;
+    } else {
+        mSyncSampleOffset = mPartialSyncSampleOffset;
+        mNumSyncSamples = mPartialNumSyncSamples;
+        mSyncSamples = mPartialSyncSamples;
+    }
+
+    return OK;
+}
+
+status_t SampleTable::setSoundDescParams(off64_t data_offset, size_t data_size){
+    uint8_t header[data_size];
+
+    if (mDataSource->readAt(
+            data_offset, header, sizeof(header)) < (ssize_t)sizeof(header)) {
+        return ERROR_IO;
+    }
+
+    mChannelCount = U16_AT(&header[16]);
+    if(data_size > 28){
+        mSamplePerPacket = U32_AT(&header[28]);
+        mBytesPerFrame = U32_AT(&header[36]);
+    }
+    return OK;
+}
+
+status_t SampleTable::setCodecType(uint32_t codectype, bool le) {
+
+    switch (codectype) {
+        case FOURCC('s', 'o', 'w', 't'):
+            mMediaType = MEDIA_TYPE_AUDIO;
+            mCodecId = CODECID_PCM_S16LE;
+            break;
+        case FOURCC('t', 'w', 'o', 's'):
+            mMediaType = MEDIA_TYPE_AUDIO;
+            mCodecId = CODECID_PCM_S16BE;
+            break;
+        case FOURCC('f', 'l', '3', '2'):
+            mMediaType = MEDIA_TYPE_AUDIO;
+            if (le) {
+                mCodecId = CODECID_PCM_F32LE;
+            } else {
+                mCodecId = CODECID_PCM_F32BE;
+            }
+            break;
+        case FOURCC('m', 's', 0, 'U'):
+            mMediaType = MEDIA_TYPE_AUDIO;
+            break;
+        default:
+            ALOGE("Unknown codec type !");
+    }
+
+    return OK;
+}
+
 uint32_t SampleTable::countChunkOffsets() const {
     return mNumChunkOffsets;
 }
@@ -538,10 +593,35 @@ uint32_t SampleTable::countSamples() const {
     return mNumSampleSizes;
 }
 
+enum CodecId SampleTable::getCodecID() const{
+    return mCodecId;
+}
+
+uint32_t SampleTable::getBitsPerSample(enum CodecId codecid) {
+    switch (codecid) {
+        case CODECID_PCM_S16LE:
+        case CODECID_PCM_S16BE:
+            return 16;
+
+        case CODECID_PCM_F32LE:
+        case CODECID_PCM_F32BE:
+            return 32;
+
+        default:
+            return 0;
+    }
+}
+
 status_t SampleTable::getMaxSampleSize(size_t *max_size) {
     Mutex::Autolock autoLock(mLock);
 
     *max_size = 0;
+    if(mDefaultSampleSize > 0){
+        //According to the MP4 spec, if mDefaultSampleSize is not zero,
+        //it means that all the samples have the same size.
+        *max_size = mDefaultSampleSize;
+        return OK;
+    }
 
     for (uint32_t i = 0; i < mNumSampleSizes; ++i) {
         size_t sample_size;
@@ -577,17 +657,25 @@ int SampleTable::CompareIncreasingTime(const void *_a, const void *_b) {
     return 0;
 }
 
-void SampleTable::buildSampleEntriesTable() {
+/* if the sample index is larger than this, something is likely wrong
+    such as, can't new the sampleEntriesTable successfully,
+    which will cause crash in SampleTable::buildSampleEntriesTable() */
+#define MAX_SAMPLE_INDEX_SIZE (6*1024*1024)
+
+status_t SampleTable::buildSampleEntriesTable() {
     Mutex::Autolock autoLock(mLock);
 
     if (mSampleTimeEntries != NULL) {
-        return;
+        return OK;
+    }
+    if(mNumSampleSizes>MAX_SAMPLE_INDEX_SIZE){
+        return ERROR_UNSUPPORTED;
     }
 
     mSampleTimeEntries = new SampleTimeEntry[mNumSampleSizes];
 
     uint32_t sampleIndex = 0;
-    int64_t sampleTime = 0;
+    uint32_t sampleTime = 0;
 
     for (uint32_t i = 0; i < mTimeToSampleCount; ++i) {
         uint32_t n = mTimeToSample[2 * i];
@@ -616,17 +704,116 @@ void SampleTable::buildSampleEntriesTable() {
 
     qsort(mSampleTimeEntries, mNumSampleSizes, sizeof(SampleTimeEntry),
           CompareIncreasingTime);
+    return OK;
+}
+
+status_t SampleTable::rebuildSampleTable() {
+    uint32_t i, chunkSamples, ix = 0;
+    uint32_t defaultSampleSize;
+    if (mMediaType == MEDIA_TYPE_AUDIO &&
+                mTimeToSampleCount == 1 && mTimeToSample[1] == 1) {
+        mNumSampleSizes = 0;
+
+        for (i = 0; i < mNumSampleToChunkOffsets; i++) {
+            uint32_t count;
+            uint32_t chunkNum;
+
+            chunkSamples = mSampleToChunkEntries[i].samplesPerChunk;
+
+            if (mSamplePerPacket >= 160) {
+                count = chunkSamples / mSamplePerPacket;
+            }else {
+                if(mSamplePerPacket >1) {
+                    uint32_t samples = (1024/mSamplePerPacket) * mSamplePerPacket;
+                    count = (chunkSamples + samples - 1)/samples;
+                }else{
+                    count = (chunkSamples + 1023)/1024;
+                }
+            }
+            if (i < mNumSampleToChunkOffsets - 1) {
+                chunkNum = mSampleToChunkEntries[i + 1].startChunk
+                                - mSampleToChunkEntries[i].startChunk;
+            } else {
+                chunkNum = mNumChunkOffsets - mSampleToChunkEntries[i].startChunk ;
+            }
+            mNumSampleSizes += chunkNum * count;
+        }
+
+        if (mSamplePerPacket <= 1 && mDefaultSampleSize) {
+            mSizeToSample = new uint32_t[mNumSampleSizes * 4];
+
+            int32_t bitspersample = getBitsPerSample(mCodecId);
+
+            if(mChannelCount){
+                defaultSampleSize = (bitspersample >> 3) * mChannelCount;
+            }else{
+                defaultSampleSize = mDefaultSampleSize;
+            }
+
+            mDefaultSampleSize = 0;
+        }
+
+        mTimeToSampleCount = mNumSampleSizes;
+        mTimeToSample = new uint32_t[mTimeToSampleCount * 2];
+
+        uint32_t stsc_index = 0;
+        uint32_t sampleidx = 0;
+        for (i = 0; i < mNumChunkOffsets; i++) {
+            ix = 0;
+            if (stsc_index + 1 < mNumSampleToChunkOffsets
+                    && i == mSampleToChunkEntries[stsc_index+1].startChunk) {
+                stsc_index++;
+            }
+            chunkSamples = mSampleToChunkEntries[stsc_index].samplesPerChunk;
+            while(chunkSamples > 0) {
+                uint32_t samples;
+                uint32_t size;
+                if (mSamplePerPacket >= 160) {
+                    samples = mSamplePerPacket;
+                    mDefaultSampleSize = mBytesPerFrame;
+                    if(sampleidx < mNumSampleSizes) {
+                        mTimeToSample[2 * sampleidx] = 1;
+                        mTimeToSample[2 * sampleidx + 1] = samples;
+                        sampleidx++;
+                    }
+                } else {
+                    if(mSamplePerPacket > 1){
+                        ALOGE("NOW NOT SUPPORT !");
+                    } else {
+                        samples = min(1024, chunkSamples);
+                        size = samples * defaultSampleSize;
+                        if(sampleidx < mNumSampleSizes) {
+                            mSizeToSample[sampleidx] = size;
+                            mTimeToSample[2 * sampleidx] = 1;
+                            mTimeToSample[2 * sampleidx + 1] = samples;
+                            sampleidx++;
+                        }
+                    }
+                }
+                ix ++;
+                chunkSamples -= samples;
+            }
+            if (stsc_index+1 < mNumChunkOffsets
+                        && i == mSampleToChunkEntries[stsc_index+1].startChunk - 1) {
+                mSampleToChunkEntries[stsc_index].samplesPerChunk = ix;
+            }else if(i + 1== mNumChunkOffsets) {
+                mSampleToChunkEntries[stsc_index].samplesPerChunk = ix;
+            }
+        }
+    }
+    return OK;
 }
 
 status_t SampleTable::findSampleAtTime(
-        int64_t req_time, uint32_t *sample_index, uint32_t flags) {
-    buildSampleEntriesTable();
-
+        uint32_t req_time, uint32_t *sample_index, uint32_t flags) {
+    if(OK!=buildSampleEntriesTable()){
+        return ERROR_UNSUPPORTED;
+    }
     uint32_t left = 0;
     uint32_t right = mNumSampleSizes;
     while (left < right) {
         uint32_t center = (left + right) / 2;
-        int64_t centerTime = mSampleTimeEntries[center].mCompositionTime;
+        uint32_t centerTime = mSampleTimeEntries[center].mCompositionTime;
 
         if (req_time < centerTime) {
             right = center;
@@ -715,11 +902,7 @@ status_t SampleTable::findSyncSampleNear(
         *sample_index = 0;
         return OK;
     }
-    if(!start_sample_index)
-    {
-         *sample_index = 0;
-         return OK;
-    }
+
     uint32_t left = 0;
     uint32_t right = mNumSyncSamples;
     while (left < right) {
@@ -743,6 +926,9 @@ status_t SampleTable::findSyncSampleNear(
         left = left - 1;
     }
 
+    if(left && mSyncSamples[left] > start_sample_index) {
+        left = left - 1;
+    }
     // Now ssi[left] is the sync sample index just before (or at)
     // start_sample_index.
     // Also start_sample_index < ssi[left + 1], if left + 1 < mNumSyncSamples.
@@ -827,17 +1013,6 @@ status_t SampleTable::findSyncSampleNear(
     return OK;
 }
 
-status_t SampleTable::findSampleFromIndex(
-        int64_t req_time, uint32_t *sample_index, uint32_t flags) {
-     for(int i = 0;i < mIndexEntry; i++){
-         if(req_time < mSampleTableIndex[i].timestamp){
-            *sample_index = i;
-            return OK;
-         }
-     }
-     *sample_index = mIndexEntry - 1;
-     return OK;
-}
 status_t SampleTable::findThumbnailSample(uint32_t *sample_index) {
     Mutex::Autolock autoLock(mLock);
 
@@ -891,7 +1066,7 @@ status_t SampleTable::getMetaDataForSample(
         uint32_t sampleIndex,
         off64_t *offset,
         size_t *size,
-        int64_t *compositionTime,
+        uint32_t *compositionTime,
         bool *isSyncSample) {
     Mutex::Autolock autoLock(mLock);
 
@@ -937,28 +1112,9 @@ status_t SampleTable::getMetaDataForSample(
     return OK;
 }
 
-status_t SampleTable::getMetaDataFromIndex(
-        uint32_t sampleIndex,
-        off64_t *offset,
-        size_t *size,
-        int64_t *compositionTime,
-        bool *isSyncSample) {
-    Mutex::Autolock autoLock(mLock);
-    *isSyncSample = false;
-    if(sampleIndex >= mIndexEntry){
-        ALOGE("the sampleIndex num is wrong");
-        return ERROR_END_OF_STREAM;
-    }
-    *offset = mSampleTableIndex[sampleIndex].pos;
-    *size = mSampleTableIndex[sampleIndex].size;
-    *compositionTime = mSampleTableIndex[sampleIndex].timestamp;
-    return OK;
-}
-#if 0
 uint32_t SampleTable::getCompositionTimeOffset(uint32_t sampleIndex) {
     return mCompositionDeltaLookup->getCompositionTimeOffset(sampleIndex);
 }
-#endif
 
 }  // namespace android
 

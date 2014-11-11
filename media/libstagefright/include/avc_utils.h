@@ -61,6 +61,25 @@ sp<MetaData> MakeAACCodecSpecificData(
         unsigned profile, unsigned sampling_freq_index,
         unsigned channel_configuration);
 
+// Given an MPEG4 video VOL-header chunk
+// parse it and get the no_of_gmc_wrapping_point
+// return value:
+// -3:  have syntax error
+// -2:  unsupported
+// -1:  stream data not enough
+// 0~3: GMC warp points
+int ParseMPEG4GMCWarpPoint(unsigned char *p, int len);
+
+// Detect H.263 stream has advanced features or not.
+// input arguments:
+//        p  - pointer to the first coded frame.
+//      len  - length of stream data used for detecting.
+// return values:
+//        1  - has 263 advanced features.
+//        0  - do not have 263 advanced features.
+//       -1  - error
+int Detect263AdvancedFeatures(unsigned char *p, int len);
+
 // Given an MPEG4 video VOL-header chunk (starting with 0x00 0x00 0x01 0x2?)
 // parse it and fill in dimensions, returns true iff successful.
 bool ExtractDimensionsFromVOLHeader(

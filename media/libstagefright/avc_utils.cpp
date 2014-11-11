@@ -577,6 +577,301 @@ sp<MetaData> MakeAACCodecSpecificData(
     return meta;
 }
 
+int ParseMPEG4GMCWarpPoint(unsigned char *p, int len)
+{
+    /* parsing one bit from the data register */
+#define __GET1BIT(dataReg, bitsLeft, code) {					\
+        (bitsLeft) -= 1;											\
+        (code)	= (unsigned char)(((dataReg) >> (bitsLeft)) & 0x1);			\
+    }
+
+#define __GETNBIT(dataReg, bitsLeft, num, code) {				\
+        (bitsLeft) -= (num);											\
+        (code)	= (((dataReg) >> (bitsLeft)) & ((1<<(num))-1));	\
+    }
+
+    /* Previews 8 bits from the bitstream */
+#define __PREVIEW8BITS(pBitStream, dataReg, bitsLeft)			\
+    {																		\
+        (dataReg) = ((dataReg) << 8) | ((unsigned int)(*(pBitStream)));			\
+        (bitsLeft) += 8;													\
+        (pBitStream) += 1;													\
+    }
+
+    /* Previews 16 bits from the bitstream */
+#define __PREVIEW16BITS(pBitStream, dataReg, bitsLeft)			\
+    {																		\
+        (dataReg) = ((dataReg) << 16) | ((unsigned int)(*(pBitStream)) << 8);		\
+        (dataReg) |= (unsigned int)(*((pBitStream)+1));							\
+        (bitsLeft) += 16;													\
+        (pBitStream) += 2;													\
+    }
+
+    /* Previews 24 bits from the bitstream */
+#define __PREVIEW24BITS(pBitStream, dataReg, bitsLeft)			\
+    {																		\
+        (dataReg) = ((dataReg) << 24) | ((unsigned int)(*(pBitStream)) << 16);	\
+        (dataReg) |= ((unsigned int)(*((pBitStream)+1)) << 8);					\
+        (dataReg) |= (unsigned int)(*((pBitStream)+2));							\
+        (bitsLeft) += 24;													\
+        (pBitStream) += 3;													\
+    }
+
+    int bitsLeft = 0;	/* 0..31, count of unused bits in dataReg */
+    int j,i, time_inc_bits, vol_verid = 1;
+    unsigned int code, dataReg;
+
+    if(len <= 4) {
+        return -1;
+    }
+    code = ((unsigned int)p[0]<<16) | ((unsigned int)p[1]<<8) | ((unsigned int)p[2]);
+    len -= 3;
+    p += 3;
+    while(len > 0) {
+        code = (code<<8) | *p++ ;
+        len--;
+        if(code == 0x000001b5) {
+            //parse visual object header
+            dataReg = 0;
+            bitsLeft = 0;
+            if(len < 1) {
+                return -1;
+            }
+            len -= 1;
+            __PREVIEW8BITS(p, dataReg, bitsLeft);
+            __GET1BIT(dataReg, bitsLeft,code);
+            vol_verid = 1;
+            if(code){
+                __GETNBIT(dataReg, bitsLeft, 4, vol_verid);
+            }
+            code = 0xffffffff;//continue loop to seek start code
+        } else if((code>>4) == (0x00000120>>4)) {
+            //ISO 14496-2, sec 6.2.3
+            //video object layer start code
+            break;
+        }
+    }
+    dataReg = 0;
+    bitsLeft = 0;
+
+    //parse VOL header
+    if(len < 3) {
+        return -1;
+    }
+    len -= 3;
+    __PREVIEW24BITS(p, dataReg, bitsLeft);
+
+    /* random_accessible_vol -- 1 bit */
+    bitsLeft -= 1;
+
+    /* Get video_object_type_indication -- 8 bit */
+    __GETNBIT(dataReg, bitsLeft, 8, code);
+    if(code == 0x12){
+        return -2;  //FGS is not supported
+    }
+
+    /* is_object_layer_identifier -- 1 bit */
+    __GET1BIT(dataReg, bitsLeft,code);
+    if(code) {
+        /* video_object_layer_verid -- 4 bit */
+        __GETNBIT(dataReg, bitsLeft,4,vol_verid);
+        /* video_object_layer_priority -- 3 bit */
+        bitsLeft -= 3;
+    }
+
+    /* aspect_ratio_info -- 4 bits */
+    __GETNBIT(dataReg, bitsLeft,4,code);
+    if(15 == code) {	/* aspect_ratio_info == "extend_PAR" */
+        if(len < 2) {
+            return -1;
+        }
+        len -= 2;
+        __PREVIEW16BITS(p, dataReg, bitsLeft);
+        /* Get par_width -- 8 bits */
+        /* Get par_height -- 8 bits */
+        bitsLeft -= 16;
+    }
+
+    /*  vol_control_parameters -- 1bit */
+    __GET1BIT(dataReg, bitsLeft,code);   //9 or 2 bits left after here
+    if (code) {
+        if(bitsLeft < 8){
+            if(len < 1) {
+                return -1;
+            }
+            len -= 1;
+            __PREVIEW8BITS(p, dataReg, bitsLeft);
+        }
+
+        /* Get chroma_format   -- 2 bit */
+        /* Get low_delay	-- 1 bit */
+        bitsLeft -= 3;
+
+        /* Get vbv_parameters  -- 1 bit */
+        __GET1BIT(dataReg, bitsLeft,code);   //5 or 6 bits left after here
+        if ( code ) {   //79 bit
+            if(len < 10) {
+                return -1;
+            }
+            len -= 10;
+            p += 8;
+            __PREVIEW16BITS(p, dataReg, bitsLeft);
+            bitsLeft -= 15;   //6 or 7 bits left after here
+        }
+    }
+
+    /* video_object_layer_shape -- 2 bits */
+    __GETNBIT(dataReg, bitsLeft,2,code);     //0,4,5,7 bits left after here
+    if(code != 0){  //only support video_object_layer_shape==rectangular
+        return -2;
+    }
+
+    if(len < 3) {
+        return -1;
+    }
+    len -= 3;
+    __PREVIEW24BITS(p, dataReg, bitsLeft);
+    bitsLeft -= 1;  /*  assert(Markbit==1) */
+
+    /* Get vop_time_inclrment_resolution  -- 16 bits */
+    __GETNBIT(dataReg, bitsLeft,16,code);   //7,11,12,14 bits left after here
+
+    if ( code > 1 ) {
+        code -= 1;
+        for (time_inc_bits = 1; time_inc_bits < 16; time_inc_bits++){
+            if (code == 1)
+                break;
+            code >>= 1;
+        }
+    } else if ( code == 1 ){
+        time_inc_bits = 1;
+    } else {
+        return -3;
+    }
+
+    bitsLeft -= 1;  /*  assert(Markbit==1) */
+    /* fixed_vop_rate -- 1bit */
+    __GET1BIT(dataReg, bitsLeft,code);   //5,9,10,12 bits left after here
+    if(code){
+        if(len < 2) {
+            return -1;
+        }
+        len -= 2;
+        __PREVIEW16BITS(p, dataReg, bitsLeft);
+        __GETNBIT(dataReg, bitsLeft,time_inc_bits,code);    //5~27 bits
+    }
+
+    //if( pBasicInfo->iVolShapeType == RECTANGULAR )
+    {
+        if( bitsLeft < 16 ) {
+            if(len < 2) {
+                return -1;
+            }
+            len -= 2;
+            __PREVIEW16BITS(p, dataReg, bitsLeft);    //16~31 bits left after here
+        }
+
+        /*  assert(Markbit ==1) */
+        /*  Get video_object_layer_width -- 13bits  */
+        /*  assert(Markbit ==1) */
+        bitsLeft -= 15;    //1~16 bits left after here
+
+        if( bitsLeft < 16 ) {
+            if(len < 2) {
+                return -1;
+            }
+            len -= 2;
+            __PREVIEW16BITS(p, dataReg, bitsLeft);    //16~31 bits left after here
+        }
+        /*  Get video_object_layer_height -- 13bits  */
+        /*  assert(Markbit ==1) */
+        bitsLeft -= 14;    //2~17 bits left after here
+    }
+
+    /* Get interlaced -- 1 bit */
+    bitsLeft -= 1;
+
+    /*obmc_disable 1 bit */
+    __GET1BIT(dataReg, bitsLeft,code);    //0~15 bits left after here
+
+    if( bitsLeft < 8 ) {
+        if(len < 1) {
+            return -1;
+        }
+        len -= 1;
+        __PREVIEW8BITS(p, dataReg, bitsLeft);    //8~15 bits left after here
+    }
+
+    /* sprite_enable, 1 or 2 bit */
+    if(vol_verid == 1) {
+        __GET1BIT(dataReg, bitsLeft,code);
+    } else {
+        __GETNBIT(dataReg, bitsLeft,2,code);
+    }
+    if ( 0 != code ) {
+        if ( 1 == code ){
+            /* Only GMC is supported in S-VOP, static sprite is not supported */
+            return -2;
+        }
+        /* no_of_sprite_warping_points 6 bits */
+        __GETNBIT(dataReg, bitsLeft, 6, code);
+        return code;
+    }
+
+    return 0;
+}
+
+int Detect263AdvancedFeatures(unsigned char *p, int len) {
+    unsigned int code;
+    unsigned char* pStartCode = p;
+
+    if(len < 7) {
+        ALOGE("Input H.263 stream length is not enough.");
+        return -1;
+    }
+
+    // detect PSC
+    code = ((unsigned int)pStartCode[0]<<24) | ((unsigned int)pStartCode[1]<<16) | ((unsigned int)pStartCode[2]<<8) | pStartCode[3];
+    while((code&0xfffffc00) != 0x00008000) {
+        len--;
+        if(len < 7) {
+            ALOGE("Input H.263 stream length is not enough.");
+            return -1;
+        }
+        code = (code << 8)| pStartCode[4];
+        pStartCode++;
+    }
+
+    code = (pStartCode[4]<<16)|(pStartCode[5]<<8)|(pStartCode[6]);
+
+    // detect PLUSPTYPE exist or not
+    if ((code&0x001c0000) != 0x001c0000) {
+        ALOGV("PLUSPTYPE not exist.");
+
+        // detect Annex D,E,F,G exist or not
+        if ((code&0x0001e000) != 0) {
+            ALOGV("Has H.263 advanced features: Annex D or E or F or G");
+            return 1;
+        }
+        return 0;
+    }
+
+    // detect OPPTYPE exist or not
+    if ((code&0x00038000) != 0x00008000) {
+        ALOGV("UFEP is not 001, OPPTYPE not exist.");
+        return 0;
+    }
+
+    // detect other Advanced features exist or not
+    if ((code&0x000007fe) != 0) {
+        ALOGV("Has H.263 advanced features.");
+        return 1;
+    }
+
+    ALOGV("Not have H.263 advanced features.");
+    return 0;
+}
+
 bool ExtractDimensionsFromVOLHeader(
         const uint8_t *data, size_t size, int32_t *width, int32_t *height) {
     ABitReader br(&data[4], size - 4);

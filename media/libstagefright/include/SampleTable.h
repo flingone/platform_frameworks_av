@@ -27,6 +27,20 @@
 
 namespace android {
 
+enum MediaType {
+    MEDIA_TYPE_UNKNOWN = -1,
+    MEDIA_TYPE_VIDEO,
+    MEDIA_TYPE_AUDIO,
+};
+
+enum CodecId {
+    CODECID_UNKNOWN = -1,
+    CODECID_PCM_S16LE,
+    CODECID_PCM_S16BE,
+    CODECID_PCM_F32LE,
+    CODECID_PCM_F32BE,
+};
+
 class DataSource;
 struct SampleIterator;
 
@@ -48,11 +62,16 @@ public:
 
     status_t setTimeToSampleParams(off64_t data_offset, size_t data_size);
 
-   // status_t setCompositionTimeToSampleParams(
-           // off64_t data_offset, size_t data_size);
-    status_t setComposTimeOffParams(off64_t data_offset, size_t data_size);
+    status_t setCompositionTimeToSampleParams(
+            off64_t data_offset, size_t data_size);
 
     status_t setSyncSampleParams(off64_t data_offset, size_t data_size);
+
+    status_t addPartialSyncSample(off64_t data_offset, size_t data_size);
+
+    status_t setSoundDescParams(off64_t data_offset, size_t data_size);
+
+    status_t rebuildSampleTable();
 
     ////////////////////////////////////////////////////////////////////////////
 
@@ -62,18 +81,11 @@ public:
 
     status_t getMaxSampleSize(size_t *size);
 
-    status_t mov_build_index();
     status_t getMetaDataForSample(
             uint32_t sampleIndex,
             off64_t *offset,
             size_t *size,
-            int64_t *compositionTime,
-            bool *isSyncSample = NULL);
-    status_t getMetaDataFromIndex(
-            uint32_t sampleIndex,
-            off64_t *offset,
-            size_t *size,
-            int64_t *compositionTime,
+            uint32_t *compositionTime,
             bool *isSyncSample = NULL);
 
     enum {
@@ -81,19 +93,21 @@ public:
         kFlagAfter,
         kFlagClosest
     };
-    status_t findSampleAtTime(
-            int64_t req_time, uint32_t *sample_index, uint32_t flags);
 
-    status_t findSampleFromIndex(
-        int64_t req_time, uint32_t *sample_index, uint32_t flags);
+    status_t findSampleAtTime(
+            uint32_t req_time, uint32_t *sample_index, uint32_t flags);
+
     status_t findSyncSampleNear(
             uint32_t start_sample_index, uint32_t *sample_index,
             uint32_t flags);
 
     status_t findThumbnailSample(uint32_t *sample_index);
-    void setSampleSize(uint32_t samplesize){
-        mSamplesize = samplesize;
-    };
+
+    status_t setCodecType(uint32_t codectype, bool le);
+
+    uint32_t getBitsPerSample(enum CodecId codecid);
+
+    enum CodecId getCodecID() const;
 
 protected:
     ~SampleTable();
@@ -109,9 +123,19 @@ private:
     sp<DataSource> mDataSource;
     Mutex mLock;
 
+    enum MediaType mMediaType;
+    enum CodecId mCodecId;
+
+    //Sound description params;
+    uint16_t mChannelCount;
+    uint32_t mBytesPerFrame;
+    uint32_t mSamplePerPacket;
+
     off64_t mChunkOffsetOffset;
     uint32_t mChunkOffsetType;
     uint32_t mNumChunkOffsets;
+    uint32_t mChunkOffsetFieldSize;
+    off64_t *mOffsetToChunk;
 
     off64_t mSampleToChunkOffset;
     uint32_t mNumSampleToChunkOffsets;
@@ -120,26 +144,29 @@ private:
     uint32_t mSampleSizeFieldSize;
     uint32_t mDefaultSampleSize;
     uint32_t mNumSampleSizes;
+    uint32_t *mSizeToSample;
 
     uint32_t mTimeToSampleCount;
     uint32_t *mTimeToSample;
 
     struct SampleTimeEntry {
         uint32_t mSampleIndex;
-        int64_t mCompositionTime;
+        uint32_t mCompositionTime;
     };
     SampleTimeEntry *mSampleTimeEntries;
 
-   // uint32_t *mCompositionTimeDeltaEntries;
-  //  size_t mNumCompositionTimeDeltaEntries;
-    uint32_t mComposTimeOffsetCount;
-    uint32_t *mComposTimeOffset;
+    uint32_t *mCompositionTimeDeltaEntries;
+    size_t mNumCompositionTimeDeltaEntries;
     CompositionDeltaLookup *mCompositionDeltaLookup;
 
     off64_t mSyncSampleOffset;
     uint32_t mNumSyncSamples;
     uint32_t *mSyncSamples;
     size_t mLastSyncSampleIndex;
+
+    off64_t mPartialSyncSampleOffset;
+    uint32_t mPartialNumSyncSamples;
+    uint32_t *mPartialSyncSamples;
 
     SampleIterator *mSampleIterator;
 
@@ -150,22 +177,14 @@ private:
     };
     SampleToChunkEntry *mSampleToChunkEntries;
 
-    struct AVIndexEntry {
-        int64_t pos;
-        int64_t timestamp;
-        int size;
-    };
-    AVIndexEntry *mSampleTableIndex;
-    int64_t mIndexEntry;
-    uint32_t mSamplesize;
     friend struct SampleIterator;
 
     status_t getSampleSize_l(uint32_t sample_index, size_t *sample_size);
-   // uint32_t getCompositionTimeOffset(uint32_t sampleIndex) const;
+    uint32_t getCompositionTimeOffset(uint32_t sampleIndex);
 
     static int CompareIncreasingTime(const void *, const void *);
 
-    void buildSampleEntriesTable();
+    status_t buildSampleEntriesTable();
 
     SampleTable(const SampleTable &);
     SampleTable &operator=(const SampleTable &);
