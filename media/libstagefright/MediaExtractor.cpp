@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #define LOG_TAG "MediaExtractor"
 #include <utils/Log.h>
 
@@ -28,7 +28,6 @@
 #include "include/WVMExtractor.h"
 #include "include/FLACExtractor.h"
 #include "include/AACExtractor.h"
-#include "include/ExtendedExtractor.h"
 
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/DataSource.h>
@@ -194,13 +193,6 @@ sp<MediaExtractor> MediaExtractor::Create(
     } else if (ret != NULL) {
         ret->setDrmFlag(false);
     }
-	if(ret == NULL){
-        ALOGI(" Using ExtendedExtractor mime = %s \n",mime);
-   		sp<MediaExtractor> retextParser =  ExtendedExtractor::CreateExtractor(source, mime);
-    	if (retextParser != NULL){
-        	return retextParser;
-    	}
-    }
 
     return ret;
 }
@@ -360,13 +352,7 @@ sp<MediaExtractor> MediaExtractor::Create(
     } else if (ret != NULL) {
         ret->setDrmFlag(false);
     }
-    if(ret == NULL){
-    	ALOGI(" Using ExtendedExtractor mime = %s \n",mime);
-    	sp<MediaExtractor> retextParser =  ExtendedExtractor::CreateExtractor(source, mime);
-    	if (retextParser != NULL){
-        	return retextParser;
-    	}
-    }
+
     return ret;
 }
 

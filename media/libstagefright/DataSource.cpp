@@ -37,7 +37,6 @@
 #include "matroska/MatroskaExtractor.h"
 #endif
 
-#include "include/ExtendedExtractor.h"
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/DataSource.h>
 #include <media/stagefright/FileSource.h>
@@ -284,7 +283,6 @@ void DataSource::RegisterDefaultSniffers() {
     RegisterSniffer_l(SniffMPEG2TS);
     RegisterSniffer_l(SniffMP3);
     RegisterSniffer_l(SniffAAC);
-    ExtendedExtractor::RegisterSniffers();
     RegisterSniffer_l(SniffWVM);
 
     char value[PROPERTY_VALUE_MAX];
