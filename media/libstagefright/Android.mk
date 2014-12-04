@@ -75,6 +75,7 @@ LOCAL_SRC_FILES:=                         \
 		Video_Mirror_Source.cpp           \
 		matroska/mkvparser.cpp            \
 		matroska/MatroskaExtractor.cpp    \
+		mov/MOVExtractor.cpp              \
 
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/include/media/stagefright/timedtext \

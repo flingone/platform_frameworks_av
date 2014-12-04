@@ -190,6 +190,8 @@ enum {
 
     kKeyPssh              = 'pssh',  // raw data
     kKeyBitsPerSample    = 'bpsa',
+	kKeyRawCodecSpecificData = 'rcsd',
+	kFfmpegCodecSpecificData ='extrd',
     kKeyWavExtInfo		= 'wavI',  //raw data
     kKeyMpeg4GMCWrapPoint = 'gmcw', //mpeg4 gmc wrap point
     kKey263AdvancedFeatures = '263A', // Indicate H.263 has advanced features.
