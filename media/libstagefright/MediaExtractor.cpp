@@ -28,6 +28,7 @@
 #include "include/WVMExtractor.h"
 #include "include/FLACExtractor.h"
 #include "include/AACExtractor.h"
+#include "matroska/MatroskaExtractor.h"
 
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/DataSource.h>
@@ -177,12 +178,14 @@ sp<MediaExtractor> MediaExtractor::Create(
         ret = new MPEG2TSExtractor(source);
     } else if (!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_WVM)) {
         // Return now.  WVExtractor should not have the DrmFlag set in the block below.
-            ret = new WVMExtractor(source);
-        } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC_ADTS) ||
+        ret = new WVMExtractor(source);
+    } else if (!strcasecmp(mime, MEDIA_MIMETYPE_AUDIO_AAC_ADTS) ||
         	!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_ADIF) ||
-            	!strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_ADTS)) {
+            !strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_ADTS)) {
         ret = new AACExtractor(source, meta);
-        }
+    } else if (! strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MATROSKA)) {
+        ret = new MatroskaExtractor(source);
+    }
     }
 
     if (ret != NULL && isDrm) {

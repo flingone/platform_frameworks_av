@@ -32,10 +32,7 @@
 #include "include/OggExtractor.h"
 #include "include/WAVExtractor.h"
 #include "include/WVMExtractor.h"
-
-#if 0
 #include "matroska/MatroskaExtractor.h"
-#endif
 
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/DataSource.h>
@@ -183,14 +180,12 @@ bool DataSource::sniff(
 			func_count = 1;
 
 		}
-#if 0
 		else if(mime_lower[0] =='m' && mime_lower[1]=='k' && mime_lower[2]=='v' && mime_lower[3]=='\0')
 		{
 			func[0] = SniffMatroska;
 			func_count = 1;
 
 		}
-#endif
 		else if((mime_lower[0] =='m' && mime_lower[1]=='p' && mime_lower[2]=='4' && mime_lower[3]=='\0' )
 				||(mime_lower[0] =='m' && mime_lower[1]=='o' && mime_lower[2]=='v' && mime_lower[3]=='\0' )
 				||(mime_lower[0] =='3' && mime_lower[1]=='g' && mime_lower[2]=='p' && mime_lower[3]=='\0' ))
@@ -273,9 +268,7 @@ void DataSource::RegisterDefaultSniffers() {
         return;
     }
     RegisterSniffer_l(SniffMPEG4);
-#if 0
     RegisterSniffer_l(SniffMatroska);
-#endif
     RegisterSniffer_l(SniffOgg);
     RegisterSniffer_l(SniffWAV);
     RegisterSniffer_l(SniffFLAC);

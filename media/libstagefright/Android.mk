@@ -42,7 +42,7 @@ LOCAL_SRC_FILES:=                         \
         MediaDefs.cpp                     \
         MediaExtractor.cpp                \
 		ExtendedExtractor.cpp             \
-	RkAudioDecoder.cpp		  \
+    	RkAudioDecoder.cpp	        	  \
 		MediaMuxer.cpp                    \
         MediaSource.cpp                   \
         MetaData.cpp                      \
@@ -71,8 +71,10 @@ LOCAL_SRC_FILES:=                         \
 		get_ape_id3.cpp                   \
         get_flac_id3.cpp                  \
         ApeGetFileInfo.cpp                \
-		Audio_Mirror_Source.cpp		  \
-		Video_Mirror_Source.cpp		  
+		Audio_Mirror_Source.cpp	    	  \
+		Video_Mirror_Source.cpp           \
+		matroska/mkvparser.cpp            \
+		matroska/MatroskaExtractor.cpp    \
 
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/include/media/stagefright/timedtext \
