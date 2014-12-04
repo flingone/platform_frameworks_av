@@ -33,6 +33,7 @@ const char *MEDIA_MIMETYPE_VIDEO_REALVIDEO =  "video/vnd.rn-realvideo";
 const char *MEDIA_MIMETYPE_VIDEO_FLV =  "video/flv";
 const char *MEDIA_MIMETYPE_VIDEO_VC1 =  "video/vc1";
 const char *MEDIA_MIMETYPE_VIDEO_VP6 =  "video/vp6";
+const char *MEDIA_MIMETYPE_VIDEO_SH263 = "video/flv-sh263";
 
 const char *MEDIA_MIMETYPE_AUDIO_AMR_NB = "audio/3gpp";
 const char *MEDIA_MIMETYPE_AUDIO_AMR_WB = "audio/amr-wb";
@@ -54,6 +55,7 @@ const char *MEDIA_MIMETYPE_AUDIO_RAW = "audio/raw";
 const char *MEDIA_MIMETYPE_AUDIO_FLAC = "audio/flac";
 const char *MEDIA_MIMETYPE_AUDIO_AAC_ADTS = "audio/aac-adts";
 const char *MEDIA_MIMETYPE_AUDIO_MSGSM = "audio/gsm";
+const char *MEDIA_MIMETYPE_AUDIO_ADPCM_SWF= "audio/adpcm-swf";
 
 const char *MEDIA_MIMETYPE_CONTAINER_MPEG4 = "video/mp4";
 const char *MEDIA_MIMETYPE_CONTAINER_MOV = "video/mov";

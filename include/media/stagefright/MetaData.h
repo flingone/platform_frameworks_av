@@ -189,6 +189,7 @@ enum {
     kKeyCryptoDefaultIVSize = 'cryS',  // int32_t
 
     kKeyPssh              = 'pssh',  // raw data
+    kKeyBitsPerSample    = 'bpsa',
     kKeyWavExtInfo		= 'wavI',  //raw data
     kKeyMpeg4GMCWrapPoint = 'gmcw', //mpeg4 gmc wrap point
     kKey263AdvancedFeatures = '263A', // Indicate H.263 has advanced features.

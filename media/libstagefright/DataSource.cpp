@@ -33,6 +33,7 @@
 #include "include/WAVExtractor.h"
 #include "include/WVMExtractor.h"
 #include "matroska/MatroskaExtractor.h"
+#include "FLVExtractor.h"
 
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/DataSource.h>
@@ -277,6 +278,7 @@ void DataSource::RegisterDefaultSniffers() {
     RegisterSniffer_l(SniffMP3);
     RegisterSniffer_l(SniffAAC);
     RegisterSniffer_l(SniffWVM);
+    RegisterSniffer_l(SniffFLV);
 
     char value[PROPERTY_VALUE_MAX];
     if (property_get("drm.service.enabled", value, NULL)

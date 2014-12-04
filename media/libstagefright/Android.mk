@@ -85,6 +85,7 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/external/tremolo \
 	    $(TOP)/frameworks/av/include/media/stagefright \
         $(TOP)/frameworks/av/media/libstagefright/rtsp \
+        $(TOP)/frameworks/av/media/libstagefright/flv \
         $(TOP)/frameworks/av/media/libstagefright/include \
         $(TOP)/frameworks/av/media/libstagefright/libvpu/common/include \
         $(TOP)/frameworks/av/media/libstagefright/libvpu/common \
@@ -118,24 +119,27 @@ LOCAL_SHARED_LIBRARIES := \
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_color_conversion \
-				libstagefright_aacdec_mirroring \
+		libstagefright_aacdec_mirroring \
         libstagefright_aacenc \
         libstagefright_flacdec\
         libstagefright_rkon2dec \
-				libstagefright_rkon2enc \
+		libstagefright_rkon2enc \
         libstagefright_avcenc \
         libstagefright_timedtext \
         libstagefright_wimover1 \
-				libvpx \
+		libvpx \
         libwebm \
         libstagefright_mpeg2ts \
         libstagefright_id3 \
 		libstagefright_hevcdec \
         libFLAC \
-				libmedia_helper \
+		libmedia_helper \
         libtvpad_decoder \
         libstagefright_version\
-				libstagefright_mirroring
+		libstagefright_mirroring\
+
+LOCAL_LDFLAGS := \
+		$(LOCAL_PATH)/flv/libstagefright_flv.a \
 
 LOCAL_SRC_FILES += \
         chromium_http_stub.cpp
