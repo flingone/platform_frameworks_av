@@ -31,6 +31,7 @@
 #include "matroska/MatroskaExtractor.h"
 #include "flv/FLVExtractor.h"
 #include "mov/MOVExtractor.h"
+#include "include/AVIExtractor.h"
 
 #include <media/stagefright/foundation/AMessage.h>
 #include <media/stagefright/DataSource.h>
@@ -191,7 +192,8 @@ sp<MediaExtractor> MediaExtractor::Create(
         ret = new FLVExtractor(source);
     } else if (! strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_MOV)) {
         ret = new MOVExtractor(source);
-
+    } else if (! strcasecmp(mime, MEDIA_MIMETYPE_CONTAINER_AVI)) {
+        ret = new AVIExtractor(source);
     }
     }
 
