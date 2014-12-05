@@ -82,6 +82,7 @@ extern const char *MEDIA_MIMETYPE_CONTAINER_MPG;
 extern const char *MEDIA_MIMETYPE_CONTAINER_REALVIDEO;
 extern const char *MEDIA_MIMETYPE_CONTAINER_FLV;
 extern const char *MEDIA_MIMETYPE_CONTAINER_AVI;
+extern const char *MEDIA_MIMETYPE_CONTAINER_HLS;
 
 extern const char *MEDIA_MIMETYPE_TEXT_3GPP;
 extern const char *MEDIA_MIMETYPE_TEXT_SUBRIP;

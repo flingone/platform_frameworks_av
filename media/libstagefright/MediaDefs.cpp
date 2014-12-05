@@ -74,11 +74,12 @@ const char *MEDIA_MIMETYPE_CONTAINER_MPEG2TS = "video/mp2ts";
 const char *MEDIA_MIMETYPE_CONTAINER_REALVIDEO =  "video/rmvb";
 const char *MEDIA_MIMETYPE_CONTAINER_ADIF =  "X-AAC-ADIF" ;//.aac file format
 const char *MEDIA_MIMETYPE_CONTAINER_ADTS =  "X-AAC-ADTS" ;//.aac file format
-
 const char *MEDIA_MIMETYPE_CONTAINER_WVM = "video/wvm";
 const char *MEDIA_MIMETYPE_CONTAINER_FLV = "video/flv";
 const char *MEDIA_MIMETYPE_CONTAINER_AVI = "video/avi";
 const char *MEDIA_MIMETYPE_CONTAINER_WIMO_VER1 = "video/wimo-ver1";
+const char *MEDIA_MIMETYPE_CONTAINER_HLS = "video/x-hls";
+
 const char *MEDIA_MIMETYPE_TEXT_3GPP = "text/3gpp-tt";
 const char *MEDIA_MIMETYPE_TEXT_SUBRIP = "application/x-subrip";
 const char *MEDIA_MIMETYPE_TEXT_MATROSKA_UTF8 = "text/matroska-tt-utf8";

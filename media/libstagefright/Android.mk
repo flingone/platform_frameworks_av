@@ -77,6 +77,9 @@ LOCAL_SRC_FILES:=                         \
 		matroska/MatroskaExtractor.cpp    \
 		mov/MOVExtractor.cpp              \
 		AVIExtractor.cpp                  \
+		hls/HLSExtractor.cpp			  \
+		hls/HLSReader.cpp				  \
+		hls/Queue.cpp					  \
 
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/include/media/stagefright/timedtext \
@@ -92,7 +95,8 @@ LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/media/libstagefright/libvpu/common/include \
         $(TOP)/frameworks/av/media/libstagefright/libvpu/common \
         $(TOP)/external/openssl/include \
-    	$(TOP)/frameworks/av/media/libstagefright/libvpu/common/include
+    	$(TOP)/frameworks/av/media/libstagefright/libvpu/common/include \
+    	$(TOP)/frameworks/av/media/libstagefright/hls/include \
 
 LOCAL_SHARED_LIBRARIES := \
         libbinder \
@@ -117,7 +121,8 @@ LOCAL_SHARED_LIBRARIES := \
         libz \
         libpowermanager \
     	librk_on2 \
-		libmedia 
+		libmedia \
+		libffmpeg_hls \
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_color_conversion \
@@ -157,7 +162,7 @@ LOCAL_SHARED_LIBRARIES += \
         libdl\
         libvpu
 
-LOCAL_CFLAGS += -Wno-multichar
+LOCAL_CFLAGS += -Wno-multichar -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS
 
 LOCAL_MODULE:= libstagefright
 

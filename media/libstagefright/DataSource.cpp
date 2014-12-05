@@ -34,6 +34,7 @@
 #include "include/WVMExtractor.h"
 #include "matroska/MatroskaExtractor.h"
 #include "flv/FLVExtractor.h"
+#include "hls/HLSExtractor.h"
 #include "mov/MOVExtractor.h"
 #include "include/AVIExtractor.h"
 
@@ -281,6 +282,7 @@ void DataSource::RegisterDefaultSniffers() {
     RegisterSniffer_l(SniffAAC);
     RegisterSniffer_l(SniffWVM);
     RegisterSniffer_l(SniffFLV);
+    RegisterSniffer_l(SniffHLS);
     RegisterSniffer_l(SniffMOV);
     RegisterSniffer_l(SniffAVI);
 

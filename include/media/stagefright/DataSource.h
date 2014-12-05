@@ -89,6 +89,10 @@ public:
         return ERROR_UNSUPPORTED;
     }
 
+    virtual const char *getPath() {
+        ALOGE("HLS: data source's get path.");
+        return "--FAKE-URL--";
+    }
     ////////////////////////////////////////////////////////////////////////////
 
     bool sniff(String8 *mimeType, float *confidence, sp<AMessage> *meta);
