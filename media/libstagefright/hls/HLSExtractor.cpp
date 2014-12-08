@@ -356,8 +356,8 @@ bool SniffHLS(
 
         if (! strncmp("http://", uri, 7)) {
 
-            if (strcasestr(uri, ".m3u8")) {
-                *confidence = 0.99f;
+            if (strcasestr(uri, "m3u8")) {
+                *confidence = 0.20f;
                 mimeType->setTo(MEDIA_MIMETYPE_CONTAINER_HLS);
                 return true;
             }
