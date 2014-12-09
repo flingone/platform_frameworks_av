@@ -38,17 +38,11 @@ typedef struct HLSReader {
     AVRational video_rational;
     AVRational audio_rational;
 
-    int64_t video_ts_base;
-    int64_t audio_ts_base;
-
-    int64_t last_video_ts;
-    int64_t last_audio_ts;
-
     int64_t video_start_time;
     int64_t audio_start_time;
 
-    bool is_mp4_section;
-
+    int64_t a_curr_ts;
+    int64_t v_curr_ts;
 } HLSReader;
 
 extern HLSReader * instance(void);

@@ -162,7 +162,7 @@ int64_t audio_duration(HLSReader *reader)
         duration = stream->duration * av_q2d(stream->time_base) * 1000000;
         ALOGD("audio duration: %lld", stream->duration);
     } else {
-        duration = reader->av_format_ctx->duration;        
+        duration = ::duration(reader);
         ALOGD("No audio stream duration, use file's: %lld", duration);
     }
 
@@ -181,7 +181,7 @@ int64_t video_duration(HLSReader *reader)
         duration = stream->duration * av_q2d(stream->time_base) * 1000000;
         ALOGE("video duration: %lld", stream->duration);
     } else {
-        duration = reader->av_format_ctx->duration;        
+        duration = ::duration(reader);
         ALOGD("No video stream duration, use file's: %lld", duration);
     }
 
@@ -190,6 +190,11 @@ int64_t video_duration(HLSReader *reader)
 
 int64_t duration(HLSReader *reader)
 {
+    if (reader->av_format_ctx->duration < 0) {
+        //live show do not have valid duration.
+        return 0;
+    }
+
     return reader->av_format_ctx->duration;
 }
 
@@ -429,18 +434,20 @@ static void * do_hls_stream_reader_thread(void *args)
 #endif
 
         if (pkt->pts < 0 && pkt->dts < 0) {
-            ALOGE("drop a packet(TS < 0)");
-            av_free_packet(pkt); free(pkt);
-            continue;
+            ALOGE("found a invalid ts packet...");
+            
+            if (pkt->stream_index == reader->video_stream_index) {
+                pkt->pts = pkt->dts = reader->v_curr_ts + (40 * av_q2d(video_time_base(reader)) * 1000000);
+            } else if (pkt->stream_index == reader->audio_stream_index) {
+                pkt->pts = pkt->dts = reader->a_curr_ts + (40 * av_q2d(audio_time_base(reader)) * 1000000);
+            }
         }
-
+        
         if (pkt->stream_index == reader->video_stream_index) {
-            reader->last_video_ts = pkt->pts;
-            pkt->pts += reader->video_ts_base;
+            reader->v_curr_ts = pkt->pts;
             queue_enqueue(&reader->videoq, pkt);
         } else if (pkt->stream_index == reader->audio_stream_index) {
-            reader->last_audio_ts = pkt->pts;
-            pkt->pts += reader->audio_ts_base;
+            reader->a_curr_ts = pkt->pts;
             queue_enqueue(&reader->audioq, pkt);
         } else {
             ALOGE("unknown packet type: %d", pkt->stream_index);
