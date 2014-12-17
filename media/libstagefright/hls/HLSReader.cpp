@@ -338,7 +338,7 @@ static void calc_time_stamp(HLSReader *reader)
 
        ALOGD("video TS: %lld audio TS: %lld", video_key_frame_ts, audio_frame_ts);
 
-       if (abs(video_key_frame_ts - audio_frame_ts) <= 50 * 1000) {
+       if (llabs(video_key_frame_ts - audio_frame_ts) <= 50 * 1000) {
            break;
        }
 
@@ -428,7 +428,7 @@ static void * do_hls_stream_reader_thread(void *args)
             enqueue_empty_packet(reader);
             break;
         }
-#if 1
+#if 0
         ALOGE("read a packet, size: %d index: %d pts: %lld dts: %lld", 
                 pkt->size, pkt->stream_index, pkt->pts, pkt->dts);
 #endif

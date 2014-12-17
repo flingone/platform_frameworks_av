@@ -3230,7 +3230,7 @@ bool OMXCodec::drainInputBuffer(BufferInfo *info) {
 
         int64_t lastBufferTimeUs;
         CHECK(srcBuffer->meta_data()->findInt64(kKeyTime, &lastBufferTimeUs));
-        CHECK(lastBufferTimeUs >= 0);
+        lastBufferTimeUs = (lastBufferTimeUs < 0)? 0 : lastBufferTimeUs;
         if (mIsEncoder && mIsVideo) {
             mDecodingTimeList.push_back(lastBufferTimeUs);
         }
