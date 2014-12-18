@@ -102,6 +102,8 @@ status_t HLSSource::read(
     }
     
     if (pkt->size == 0 && pkt->data == NULL) {
+        free(pkt);
+        ALOGE("END OF STREAM");
         return ERROR_END_OF_STREAM;
     }
 

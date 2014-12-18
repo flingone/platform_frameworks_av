@@ -300,6 +300,9 @@ static void enqueue_empty_packet(HLSReader *reader)
 
     pkt1 = (AVPacket *)malloc(sizeof(*pkt1));
     pkt2 = (AVPacket *)malloc(sizeof(*pkt2));
+    
+    pkt1->size = pkt2->size = 0;
+    pkt1->data = pkt2->data = NULL;
 
     queue_enqueue(&reader->videoq, pkt1);
     queue_enqueue(&reader->audioq, pkt2);
@@ -425,6 +428,7 @@ static void * do_hls_stream_reader_thread(void *args)
         av_init_packet(pkt);
 
         if (av_read_frame(reader->av_format_ctx, pkt) < 0) {
+            ALOGE("end of stream.");
             enqueue_empty_packet(reader);
             break;
         }
