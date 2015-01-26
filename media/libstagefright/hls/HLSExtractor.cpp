@@ -37,6 +37,7 @@ private:
     bool mIsVideo;
     bool mWithStartCode;
     HLSReader *mHLSReader;
+    bool mIsReachedEOS;
     mutable Mutex mLock;
 
     void addADTSHeader(uint8_t *adts_header, int frame_length, int rate_idx, int channels);
@@ -50,7 +51,8 @@ HLSSource::HLSSource(
     mMetaData(meta),
     mIsVideo(isVideo),
     mWithStartCode(withStartCode),
-    mHLSReader(instance()) {
+    mHLSReader(instance()),
+    mIsReachedEOS(false) {
 }
 
 status_t HLSSource::start(MetaData *params) {
@@ -84,6 +86,11 @@ status_t HLSSource::read(
     ReadOptions::SeekMode mode;
     int64_t pktTS = AV_NOPTS_VALUE;
 
+    if (mIsReachedEOS) {
+        ALOGE("-- END OF STREAM --");
+        return ERROR_END_OF_STREAM;
+    }
+
     MediaBuffer *mediaBuffer;
 
     if (options && options->getSeekTo(&seekTimeUs, &mode)) {
@@ -104,6 +111,7 @@ status_t HLSSource::read(
     if (pkt->size == 0 && pkt->data == NULL) {
         free(pkt);
         ALOGE("END OF STREAM");
+        mIsReachedEOS = true;
         return ERROR_END_OF_STREAM;
     }
 
