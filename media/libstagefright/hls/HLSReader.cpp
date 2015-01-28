@@ -30,6 +30,7 @@ static void _init_(HLSReader *reader)
     reader->is_stop = false;
     reader->is_pause = false;
     reader->is_running = false;
+    reader->urIType = NULL;
 
     queue_init(&reader->videoq);
     queue_init(&reader->audioq);
@@ -88,9 +89,26 @@ static void init_reader(HLSReader *reader)
     reader->audio_rational = reader->av_format_ctx->streams[reader->audio_stream_index]->time_base;
 }
 
+static char *get_uri_type(const char *uri)
+{
+    if (! strncmp(uri, "http://7d.v.iask.com", 20)) {
+        return "SINA";
+    }
+
+    return NULL;
+}
+
+static bool need_rebuild_timestamp(HLSReader *reader)
+{
+    return reader->urIType != NULL;
+}
+
 _status_t hls_reader_init(const char *url, HLSReader *reader)
 {
     _init_(reader);
+
+    reader->urIType = get_uri_type(url);
+    reader->pIsNeedRebuildTimestamp = need_rebuild_timestamp;
 
     avcodec_register_all();                                                                                                         
     av_register_all();

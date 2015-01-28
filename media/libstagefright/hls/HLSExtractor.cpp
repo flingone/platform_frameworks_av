@@ -38,6 +38,8 @@ private:
     bool mWithStartCode;
     HLSReader *mHLSReader;
     bool mIsReachedEOS;
+    int64_t mVideoTimeStamp;
+    int64_t mAudioTimeStamp;
     mutable Mutex mLock;
 
     void addADTSHeader(uint8_t *adts_header, int frame_length, int rate_idx, int channels);
@@ -52,7 +54,9 @@ HLSSource::HLSSource(
     mIsVideo(isVideo),
     mWithStartCode(withStartCode),
     mHLSReader(instance()),
-    mIsReachedEOS(false) {
+    mIsReachedEOS(false),
+    mVideoTimeStamp(0),
+    mAudioTimeStamp(0) {
 }
 
 status_t HLSSource::start(MetaData *params) {
@@ -137,28 +141,38 @@ status_t HLSSource::read(
         
     memcpy((uint8_t *)mediaBuffer->data(), pkt->data, pkt->size);
 
-    pktTS = pkt->pts;
-
-    if (pktTS == AV_NOPTS_VALUE) {
-        pktTS = pkt->dts;
-    }
-
-    if (mIsVideo) {
-        startTime = video_start_time(mHLSReader);
-        if (startTime == AV_NOPTS_VALUE) {
-            startTime = 0;
+    if (mHLSReader->pIsNeedRebuildTimestamp(mHLSReader)) {
+        if (mIsVideo) {
+            timeUs = mVideoTimeStamp;
+            mVideoTimeStamp += 40 * 1000;
+        } else {
+            timeUs = mAudioTimeStamp;
+            mAudioTimeStamp += 320;
         }
     } else {
-        startTime = audio_start_time(mHLSReader);
-        if (startTime == AV_NOPTS_VALUE) {
-            startTime = 0;
-        }
-    }
+        pktTS = pkt->pts;
 
-    if (mIsVideo) {
-        timeUs = (int64_t)((pktTS - startTime) * av_q2d(video_time_base(mHLSReader)) * 1000000);
-    } else {
-        timeUs = (int64_t)((pktTS - startTime) * av_q2d(audio_time_base(mHLSReader)) * 1000000);
+        if (pktTS == AV_NOPTS_VALUE) {
+            pktTS = pkt->dts;
+        }
+
+        if (mIsVideo) {
+            startTime = video_start_time(mHLSReader);
+            if (startTime == AV_NOPTS_VALUE) {
+                startTime = 0;
+            }
+        } else {
+            startTime = audio_start_time(mHLSReader);
+            if (startTime == AV_NOPTS_VALUE) {
+                startTime = 0;
+            }
+        }
+
+        if (mIsVideo) {
+            timeUs = (int64_t)((pktTS - startTime) * av_q2d(video_time_base(mHLSReader)) * 1000000);
+        } else {
+            timeUs = (int64_t)((pktTS - startTime) * av_q2d(audio_time_base(mHLSReader)) * 1000000);
+        }
     }
 
     mediaBuffer->meta_data()->setInt64(kKeyTime, timeUs);                                                                               
@@ -339,6 +353,10 @@ uint32_t HLSExtractor::flags() const {
     }
 
     uint32_t flags = CAN_PAUSE;
+
+    if (mHLSReader->pIsNeedRebuildTimestamp(mHLSReader)) {
+        return flags;
+    }
     
     if (duration(mHLSReader) != AV_NOPTS_VALUE) {
         flags |= (CAN_SEEK_FORWARD | CAN_SEEK_BACKWARD | CAN_SEEK);

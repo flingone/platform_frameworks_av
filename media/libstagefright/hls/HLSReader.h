@@ -43,6 +43,9 @@ typedef struct HLSReader {
 
     int64_t a_curr_ts;
     int64_t v_curr_ts;
+
+    char *urIType;
+    bool (*pIsNeedRebuildTimestamp)(struct HLSReader *);
 } HLSReader;
 
 extern HLSReader * instance(void);
