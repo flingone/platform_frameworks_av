@@ -512,20 +512,21 @@ void decodeAudioSpecificInfo(HLSReader *reader, uint8_t *profile,
 
     ALOGD("open %s bsfc success.", name);
 
-    AVPacket *pkt = (AVPacket *)malloc(sizeof(AVPacket));
-
     while(true) {
+        AVPacket *pkt = (AVPacket *)malloc(sizeof(AVPacket));
         av_read_frame(reader->av_format_ctx, pkt);
 
         if (pkt->stream_index == reader->audio_stream_index) {
-            int ret; 
+            int     ret; 
+            int     outbuf_size;
             uint8_t *outbuf;
-            int   outbuf_size;
-            avctx = reader->av_format_ctx->streams[reader->audio_stream_index]->codec;
 
+            avctx = reader->av_format_ctx->streams[reader->audio_stream_index]->codec;
             ALOGD("read a audio packet, size: %d", pkt->size);
+
             if (reader->bsfc && pkt && pkt->data) {
-                ret = av_bitstream_filter_filter(reader->bsfc, avctx, NULL, &outbuf, &outbuf_size, pkt->data, pkt->size, pkt->flags & AV_PKT_FLAG_KEY);
+                ret = av_bitstream_filter_filter(reader->bsfc, avctx, NULL, &outbuf, 
+                        &outbuf_size, pkt->data, pkt->size, pkt->flags & AV_PKT_FLAG_KEY);
 
                 if (ret < 0 ||!outbuf_size) {
                     av_free_packet(pkt);
@@ -539,12 +540,10 @@ void decodeAudioSpecificInfo(HLSReader *reader, uint8_t *profile,
                 break;
             }    
         } else {
-            ALOGD("It's a video packet, skip it.");
-            av_free_packet(pkt);
+            ALOGD("It's a video packet, enqueue it.");
+            queue_enqueue(&reader->videoq, pkt);
         }
     }
-
-    free(pkt);
 
     decodeAudioExtradata(reader, profile, sf_index, channel);
 }
