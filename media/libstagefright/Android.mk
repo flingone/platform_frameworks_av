@@ -122,7 +122,8 @@ LOCAL_SHARED_LIBRARIES := \
         libpowermanager \
     	librk_on2 \
 		libmedia \
-		libffmpeg_hls \
+		libavcodec libavdevice libavfilter libavformat libavresample libavutil libpostproc libswresample libswscale \
+
 
 LOCAL_STATIC_LIBRARIES := \
         libstagefright_color_conversion \
