@@ -2192,7 +2192,7 @@ void OMXCodec::on_message(const omx_message &msg) {
          * processed for bookkeeping purposes
          */
         if (msg.type == omx_message::EVENT) {
-            ALOGW("Dropping OMX EVENT message - we're in ERROR state.");
+            ALOGE("Dropping OMX EVENT message - we're in ERROR state.");
             return;
         }
     }
@@ -2289,7 +2289,7 @@ void OMXCodec::on_message(const omx_message &msg) {
 #if 1
             } else if (mPortStatus[kPortIndexOutput] == ENABLED
                        && (flags & OMX_BUFFERFLAG_EOS)) {
-                CODEC_LOGV("No more output data.");
+                CODEC_LOGE("No more output data.");
                 mNoMoreOutputData = true;
                 mBufferFilled.signal();
 #endif
@@ -3285,6 +3285,7 @@ bool OMXCodec::drainInputBuffer(BufferInfo *info) {
 
     if (signalEOS) {
         flags |= OMX_BUFFERFLAG_EOS;
+        mNoMoreOutputData = true;
     } else {
         mNoMoreOutputData = false;
     }
