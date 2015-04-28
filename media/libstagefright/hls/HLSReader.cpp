@@ -428,6 +428,14 @@ static void * do_hls_stream_reader_thread(void *args)
         }
 
         if (reader->is_seek) {
+            if (reader->seek_time >= duration(reader)) {
+                ALOGE("Seek Time: %lld great or equal than Duration: %lld, so end of stream.",
+                        reader->seek_time, duration(reader));
+                reader->is_seek = false;
+                enqueue_empty_packet(reader);
+                break;
+            }
+
             ALOGD("start seek, seek time: %lld.", reader->seek_time);
            if (avformat_seek_file(reader->av_format_ctx, -1, INT64_MIN, reader->seek_time, INT64_MAX, 0) < 0) {
                ALOGE("seek to %lld failed.", reader->seek_time);
@@ -500,8 +508,13 @@ void start_hls_stream_reader_thread(HLSReader *reader)
 
 void stop_hls_stream_reader_thread(HLSReader *reader)
 {
+    if (! gHLSReader) {
+        return;
+    }
+
     reader->is_stop = true;
     pthread_join(reader->ptid, NULL);
+    hls_reader_destroy(reader);
 }
 
 void hls_reader_destroy(HLSReader *reader)
