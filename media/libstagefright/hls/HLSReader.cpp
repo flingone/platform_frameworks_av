@@ -514,6 +514,7 @@ void stop_hls_stream_reader_thread(HLSReader *reader)
 
     reader->is_stop = true;
     pthread_join(reader->ptid, NULL);
+    pthread_kill(reader->ptid, SIGKILL);
     hls_reader_destroy(reader);
 }
 
