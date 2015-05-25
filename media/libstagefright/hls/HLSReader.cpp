@@ -406,6 +406,7 @@ static void find_video_keyframe(HLSReader *reader)
 
 static void * do_hls_stream_reader_thread(void *args)
 {
+    int ret;
     AVPacket *pkt;
     HLSReader *reader;
 
@@ -453,10 +454,21 @@ static void * do_hls_stream_reader_thread(void *args)
         pkt = (AVPacket *) malloc(sizeof(*pkt));
         av_init_packet(pkt);
 
-        if (av_read_frame(reader->av_format_ctx, pkt) < 0) {
-            ALOGE("end of stream.");
-            enqueue_empty_packet(reader);
-            break;
+        if ((ret = av_read_frame(reader->av_format_ctx, pkt)) < 0) {
+            if (ret == AVERROR_EOF || avio_feof(reader->av_format_ctx->pb)) {
+                ALOGE("end of stream.");
+                enqueue_empty_packet(reader);
+                break;
+            }
+
+            if (reader->av_format_ctx->pb && reader->av_format_ctx->pb->error) {
+                ALOGE("end of stream.");
+                enqueue_empty_packet(reader);
+                break;
+            }
+
+            usleep(1000);
+            continue;
         }
 #if 0
         ALOGE("read a packet, size: %d index: %d pts: %lld dts: %lld", 
