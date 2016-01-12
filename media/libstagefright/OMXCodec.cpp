@@ -47,6 +47,10 @@
 #include <cutils/properties.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <string.h>
+#include <signal.h>
 
 #include <OMX_Audio.h>
 #include <OMX_Component.h>
@@ -1546,6 +1550,11 @@ OMXCodec::~OMXCodec() {
 
     free(mMIME);
     mMIME = NULL;
+
+    //FIXME, Just workaround for IPCamera Demo.
+    if (kill(getpid(), 9) < 0) {
+        ALOGE("Kill %u failed: %s", getpid(), strerror(errno));
+    }
 }
 
 status_t OMXCodec::init() {
